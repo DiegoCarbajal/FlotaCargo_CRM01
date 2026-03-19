@@ -247,12 +247,26 @@ const BG_URI="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgFBgcGBQg
 // ── LOGIN ────────────────────────────────────────────────────────────────────
 function Login({onLogin}){
   const {isMobile,isTablet}=useBP();
+  const [email,setEmail]=useState("");
   const [pass,setPass]=useState("");
   const [show,setShow]=useState(false);
   const [err,setErr]=useState("");
+  const [loading,setLoading]=useState(false);
+  // Demo users
+  const USERS=[
+    {email:"admin@flotacargo.mx",pass:"demo123",user:DEMO_USER,company:DEMO_COMPANY},
+    {email:"demo@flotacargo.mx",pass:"demo123",user:{...DEMO_USER,role:"Operador",avatar:"OP"},company:DEMO_COMPANY},
+  ];
   function doLogin(){
-    if(pass==="demo123")onLogin({user:DEMO_USER,company:DEMO_COMPANY});
-    else setErr("Contraseña incorrecta. Usa: demo123");
+    if(!email.trim()){setErr("Ingresa tu correo electrónico.");return;}
+    if(!pass.trim()){setErr("Ingresa tu contraseña.");return;}
+    setLoading(true);
+    setTimeout(()=>{
+      setLoading(false);
+      const found=USERS.find(u=>u.email.toLowerCase()===email.trim().toLowerCase()&&u.pass===pass);
+      if(found)onLogin({user:found.user,company:found.company});
+      else setErr("Correo o contraseña incorrectos.");
+    },600);
   }
 
   // Multiple truck/highway images from Unsplash (free, no API key needed)
@@ -445,11 +459,31 @@ function Login({onLogin}){
             letterSpacing:"-.025em",marginBottom:8,lineHeight:1.15
           }},"Bienvenido"),
           h('p',{style:{fontSize:14,color:"#6B7A90",lineHeight:1.6}},
-            "Ingresa tu contraseña para acceder al panel de control."
+            "Ingresa tu usuario y contraseña para acceder al panel de control."
           )
         ),
 
-        // Form
+        // Email field
+        h('div',{style:{marginBottom:14}},
+          h('label',{style:{
+            display:"block",fontSize:11.5,fontWeight:700,color:"#3D4F6B",
+            marginBottom:6,textTransform:"uppercase",letterSpacing:".08em"
+          }},"Correo / Usuario"),
+          h('div',{style:{position:"relative"}},
+            h('span',{style:{
+              position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",
+              display:"flex",color:"#9BA8B8"
+            }},h(Ic,{n:"mail",s:16,c:"#9BA8B8"})),
+            h('input',{
+              type:"email",value:email,
+              onChange:e=>{setEmail(e.target.value);setErr("");},
+              className:"lf-inp",placeholder:"correo@empresa.mx",
+              onKeyDown:e=>e.key==="Enter"&&doLogin()
+            })
+          )
+        ),
+
+        // Password field
         h('div',{style:{marginBottom:16}},
           h('label',{style:{
             display:"block",fontSize:11.5,fontWeight:700,color:"#3D4F6B",
@@ -462,7 +496,7 @@ function Login({onLogin}){
             }},h(Ic,{n:"lock",s:16,c:"#9BA8B8"})),
             h('input',{
               type:show?"text":"password",value:pass,
-              onChange:e=>setPass(e.target.value),
+              onChange:e=>{setPass(e.target.value);setErr("");},
               className:"lf-inp",placeholder:"Ingresa tu contraseña",
               style:{paddingRight:42},
               onKeyDown:e=>e.key==="Enter"&&doLogin()
@@ -485,8 +519,8 @@ function Login({onLogin}){
           h('span',{style:{fontSize:13,color:"#C0152E"}},err)
         ),
 
-        h('button',{onClick:doLogin,className:"lf-btn",style:{marginBottom:20}},
-          "Acceder al Sistema →"
+        h('button',{onClick:doLogin,className:"lf-btn",style:{marginBottom:20,opacity:loading?.7:1,cursor:loading?"wait":"pointer"},disabled:loading},
+          loading?"Verificando...":"Acceder al Sistema →"
         ),
 
         // Demo credentials box
@@ -495,19 +529,19 @@ function Login({onLogin}){
           background:"#F7F9FC",
           border:"1px solid #E5EAF0",
           borderRadius:8,
-          display:"flex",alignItems:"center",justifyContent:"space-between",
-          gap:12
+          marginBottom:12
         }},
-          h('div',null,
-            h('div',{style:{fontSize:11.5,fontWeight:600,color:"#6B7A90",marginBottom:3,textTransform:"uppercase",letterSpacing:".06em"}},"Demo"),
-            h('div',{style:{fontSize:12,color:"#3D4F6B"}},"Contraseña de acceso rápido")
-          ),
-          h('code',{style:{
-            fontSize:15,fontWeight:700,color:"#1447E6",
-            fontFamily:"IBM Plex Mono,monospace",
-            background:"#EBF1FF",padding:"4px 12px",borderRadius:6,
-            letterSpacing:".05em",whiteSpace:"nowrap"
-          }},"demo123")
+          h('div',{style:{fontSize:11.5,fontWeight:600,color:"#6B7A90",marginBottom:8,textTransform:"uppercase",letterSpacing:".06em"}},"Credenciales de Demo"),
+          h('div',{style:{display:"flex",flexDirection:"column",gap:4}},
+            h('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
+              h('span',{style:{fontSize:12,color:"#3D4F6B"}},"Usuario:"),
+              h('code',{style:{fontSize:12.5,fontWeight:700,color:"#1447E6",fontFamily:"IBM Plex Mono,monospace",background:"#EBF1FF",padding:"2px 8px",borderRadius:4}},"admin@flotacargo.mx")
+            ),
+            h('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
+              h('span',{style:{fontSize:12,color:"#3D4F6B"}},"Contraseña:"),
+              h('code',{style:{fontSize:12.5,fontWeight:700,color:"#1447E6",fontFamily:"IBM Plex Mono,monospace",background:"#EBF1FF",padding:"2px 8px",borderRadius:4}},"demo123")
+            )
+          )
         ),
 
         // Footer
