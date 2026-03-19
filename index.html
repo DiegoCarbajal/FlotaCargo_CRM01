@@ -296,25 +296,10 @@ function Login({onLogin}){
       flex:1,position:"relative",overflow:"hidden",
       minHeight:isTablet?280:"100vh"
     }},
-      // Photo
-      h('img',{
-        src:BG_IMAGE,
-        alt:"Logistics",
-        style:{
-          position:"absolute",inset:0,width:"100%",height:"100%",
-          objectFit:"cover",objectPosition:"center"
-        }
-      }),
-      // Dark overlay gradient
-      h('div',{style:{
-        position:"absolute",inset:0,
-        background:"linear-gradient(135deg,rgba(4,12,32,.88) 0%,rgba(10,25,60,.82) 50%,rgba(4,12,32,.88) 100%)"
-      }}),
-      // Blue tint layer
-      h('div',{style:{
-        position:"absolute",inset:0,
-        background:"radial-gradient(ellipse at 30% 60%,rgba(20,71,230,.25) 0%,transparent 65%)"
-      }}),
+      // CSS-only background — no external image
+      h('div',{style:{position:"absolute",inset:0,background:"linear-gradient(160deg,#020b18 0%,#041225 30%,#071e3d 60%,#040f20 100%)"}}),
+      h('div',{style:{position:"absolute",inset:0,backgroundImage:"linear-gradient(rgba(20,71,230,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(20,71,230,.06) 1px,transparent 1px)",backgroundSize:"48px 48px"}}),
+      h('div',{style:{position:"absolute",inset:0,background:"radial-gradient(ellipse at 25% 55%,rgba(20,71,230,.3) 0%,transparent 55%)"}}),
 
       // Content over photo
       h('div',{style:{
