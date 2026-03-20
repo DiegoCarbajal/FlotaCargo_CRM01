@@ -42,42 +42,8 @@ input,select,textarea,button{font-family:'IBM Plex Sans',sans-serif}
 <body>
 <div id="root"></div>
 <script>
-// Loader with multiple CDN fallbacks
-(function(){
-  var cdns = [
-    ['https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js',
-     'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js'],
-    ['https://unpkg.com/react@18.2.0/umd/react.production.min.js',
-     'https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js'],
-    ['https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js',
-     'https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js'],
-  ];
-  var idx=0;
-  function tryLoad(i){
-    if(i>=cdns.length){
-      document.getElementById('root').innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;flex-direction:column;gap:16px;background:#0D1B2A;color:#fff"><div style="font-size:32px">🚛</div><div style="font-size:18px;font-weight:700">FleetOS</div><div style="font-size:14px;color:rgba(255,255,255,.6);text-align:center;max-width:360px">No se pudo cargar la aplicación.<br>Necesita conexión a internet la primera vez que abre el archivo.<br><br>Si ya tiene internet, intente recargar (F5).</div><button onclick="location.reload()" style="margin-top:8px;padding:10px 24px;background:#1447E6;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600">Recargar</button></div>';
-      return;
-    }
-    var s1=document.createElement('script');
-    s1.src=cdns[i][0];
-    s1.crossOrigin='anonymous';
-    s1.onerror=function(){tryLoad(i+1);};
-    s1.onload=function(){
-      var s2=document.createElement('script');
-      s2.src=cdns[i][1];
-      s2.crossOrigin='anonymous';
-      s2.onerror=function(){tryLoad(i+1);};
-      s2.onload=function(){ startApp(); };
-      document.head.appendChild(s2);
-    };
-    document.head.appendChild(s1);
-  }
-  tryLoad(0);
-})();
-</script>
-<script>
 'use strict';
-function startApp(){
+window.startApp = function startApp(){
 const {useState,useEffect,useRef,useMemo,createElement:h,Fragment} = React;
 
 // ── TOKENS ──────────────────────────────────────────────────────────────────
@@ -196,7 +162,7 @@ function Modal({title,sub,onClose,children,width}){
   );
 }
 
-function Field({label,value,onChange,type,opts,half,required,placeholder}){
+function Field({label,value,onChange,type,opts,half,required,placeholder,min,max}){
   type=type||"text";
   return h('div',{style:{marginBottom:14,gridColumn:half?undefined:"1/-1"}},
     h('label',{style:{display:"block",fontSize:11.5,fontWeight:600,color:C.textMid,marginBottom:5,textTransform:"uppercase",letterSpacing:".07em"}},
@@ -206,7 +172,8 @@ function Field({label,value,onChange,type,opts,half,required,placeholder}){
       ? h('select',{value,onChange:e=>onChange(e.target.value),className:"inp",style:{appearance:"none",cursor:"pointer"}},
           opts.map(o=>h('option',{key:o.v,value:o.v},o.l))
         )
-      : h('input',{type,value,onChange:e=>onChange(e.target.value),className:"inp",placeholder:placeholder||""})
+      : h('input',{type,value,onChange:e=>onChange(e.target.value),className:"inp",placeholder:placeholder||"",
+          ...(type==="date"?{min:min||"2020-01-01",max:max||"2030-12-31"}:{})})
   );
 }
 
@@ -1374,7 +1341,10 @@ function Trips({trips,setTrips,units,drivers}){
   const [filt,setFilt]=useState("all");
   const [modal,setModal]=useState(false);
   const [editId,setEditId]=useState(null);
-  const ef={origin:"",destination:"",client:"",cargoType:"Alimentos",weight:"",departDate:"",arrivalDate:"",unit:"",driver:"",status:"programado",km:"",fuelEst:"",month:"2025-01",notes:""};
+  // Generate months 2024-01 to 2026-12 dynamically
+  const ALL_MONTH_OPTS=(()=>{const r=[];for(let y=2024;y<=2026;y++)for(let m=1;m<=12;m++)r.push(`${y}-${String(m).padStart(2,"0")}`);return r;})();
+  const curMonth=new Date().toISOString().slice(0,7);
+  const ef={origin:"",destination:"",client:"",cargoType:"Alimentos",weight:"",departDate:"",arrivalDate:"",unit:"",driver:"",status:"programado",km:"",fuelEst:"",month:curMonth,notes:""};
   const [form,setForm]=useState(ef);
   const upd=(k,v)=>setForm(p=>({...p,[k]:v}));
   function openEdit(t){
@@ -1690,8 +1660,8 @@ function Trips({trips,setTrips,units,drivers}){
           opts:[{v:"",l:"Seleccionar"},...units.map(u=>({v:u.id,l:`${u.plates} — ${u.model}`}))]}),
         h(Field,{label:"Operador",value:form.driver,onChange:v=>upd("driver",v),half:true,
           opts:[{v:"",l:"Seleccionar"},...drivers.map(d=>({v:d.id,l:d.name}))]}),
-        h(Field,{label:"Mes",value:form.month,onChange:v=>upd("month",v),half:true,
-          opts:["2025-01","2025-02","2025-03","2025-04","2025-05","2025-06"].map(x=>({v:x,l:x}))}),
+        h(Field,{label:"Mes de Operación",value:form.month,onChange:v=>upd("month",v),half:true,
+          opts:ALL_MONTH_OPTS.map(x=>{const[y,mo]=x.split("-");return{v:x,l:`${MONTHS_ES[+mo-1].slice(0,3)} ${y}`};})}),
         h('div',{style:{gridColumn:"1/-1",marginBottom:14}},
           h('label',{style:{display:"block",fontSize:11.5,fontWeight:600,color:C.textMid,marginBottom:5,
             textTransform:"uppercase",letterSpacing:".07em"}},"Notas"),
@@ -1716,7 +1686,8 @@ function Fuel({fuel,setFuel,units,drivers}){
   const [fuelView,setFuelView]=useState("charts");
   const [fuelSubview,setFuelSubview]=useState("periodo");
   const [fuelPeriod,setFuelPeriod]=useState("month");
-  const ef={unit:"",driver:"",date:"",liters:"",cost:"",location:"",km:"",month:"2025-01"};
+  const FUEL_MONTH_OPTS=(()=>{const r=[];for(let y=2024;y<=2026;y++)for(let m=1;m<=12;m++)r.push(`${y}-${String(m).padStart(2,"0")}`);return r;})();
+  const ef={unit:"",driver:"",date:"",liters:"",cost:"",location:"",km:"",month:new Date().toISOString().slice(0,7)};
   const [form,setForm]=useState(ef);
   const upd=(k,v)=>setForm(p=>({...p,[k]:v}));
   function save(){
@@ -2052,7 +2023,7 @@ function Fuel({fuel,setFuel,units,drivers}){
           opts:[{v:"",l:"Seleccionar"},...drivers.map(d=>({v:d.id,l:d.name}))]}),
         h(Field,{label:"Fecha",value:form.date,onChange:v=>upd("date",v),type:"date",half:true}),
         h(Field,{label:"Mes de operación",value:form.month,onChange:v=>upd("month",v),half:true,
-          opts:["2025-01","2025-02","2025-03","2025-04","2025-05","2025-06"].map(x=>({v:x,l:x}))}),
+          opts:FUEL_MONTH_OPTS.map(x=>{const[y,mo]=x.split("-");return{v:x,l:`${MONTHS_ES[+mo-1].slice(0,3)} ${y}`};})}),
         h(Field,{label:"Litros cargados",value:form.liters,onChange:v=>upd("liters",v),type:"number",half:true}),
         h(Field,{label:"Costo total (MXN)",value:form.cost,onChange:v=>upd("cost",v),type:"number",half:true}),
         h(Field,{label:"Estación de servicio",value:form.location,onChange:v=>upd("location",v)})
@@ -2069,6 +2040,7 @@ function Fuel({fuel,setFuel,units,drivers}){
 function Maint({maint,setMaint,units}){
   const {isTablet}=useBP();
   const [modal,setModal]=useState(false);
+  const [editModal,setEditModal]=useState(null); // holds maint record being edited
   const [view,setView]=useState("cards"); // cards | charts
   const ef={unit:"",type:"Preventivo",category:"Aceite",date:"",cost:"",description:"",status:"programado"};
   const [form,setForm]=useState(ef);
@@ -2079,6 +2051,12 @@ function Maint({maint,setMaint,units}){
     setModal(false);setForm(ef);
   }
   const chg=(id,st)=>setMaint(maint.map(m=>m.id===id?{...m,status:st}:m));
+  function openEdit(m){setEditModal({...m});} 
+  function saveEdit(){
+    if(!editModal)return;
+    setMaint(maint.map(m=>m.id===editModal.id?{...editModal,cost:+editModal.cost}:m));
+    setEditModal(null);
+  }
   const CC={Frenos:C.danger,Aceite:C.warning,Llantas:C.primary,Motor:C.purple,Eléctrico:C.info,Suspensión:C.textMid};
   const CI={Frenos:"🛑",Aceite:"🛢️",Llantas:"⭕",Motor:"⚙️",Eléctrico:"⚡",Suspensión:"🔧"};
   const UNIT_COLORS=[C.primary,C.success,C.warning,C.purple];
@@ -2267,13 +2245,17 @@ function Maint({maint,setMaint,units}){
               h('div',{style:{fontSize:11,color:C.textLight}},"Fecha · Costo"),
               h('div',{style:{fontSize:12.5,fontWeight:700,color:C.text}},m.date," · ",fmtM(m.cost))
             ),
-            h('div',{style:{display:"flex",gap:6}},
+            h('div',{style:{display:"flex",gap:6,flexWrap:"wrap"}},
+              h('button',{onClick:()=>openEdit(m),
+                style:{background:C.surfaceAlt,color:C.textMid,border:`1px solid ${C.border}`,
+                  borderRadius:5,padding:"4px 10px",fontSize:11.5,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4}},
+                "✏️ Editar"),
               m.status==="programado"&&h('button',{onClick:()=>chg(m.id,"en proceso"),
                 style:{background:C.warningBg,color:C.warning,border:`1px solid ${C.warningBd}`,
-                  borderRadius:5,padding:"4px 9px",fontSize:11.5,fontWeight:600,cursor:"pointer"}},"Iniciar"),
+                  borderRadius:5,padding:"4px 9px",fontSize:11.5,fontWeight:600,cursor:"pointer"}},"▶ Iniciar"),
               m.status==="en proceso"&&h('button',{onClick:()=>chg(m.id,"completado"),
                 style:{background:C.successBg,color:C.success,border:`1px solid ${C.successBd}`,
-                  borderRadius:5,padding:"4px 9px",fontSize:11.5,fontWeight:600,cursor:"pointer"}},"Completar")
+                  borderRadius:5,padding:"4px 9px",fontSize:11.5,fontWeight:600,cursor:"pointer"}},"✓ Completar")
             )
           )
         );
@@ -2298,6 +2280,27 @@ function Maint({maint,setMaint,units}){
         h('button',{onClick:()=>setModal(false),className:"btn-s",
           style:{padding:"9px 18px",fontSize:13,fontWeight:600}},"Cancelar"),
         h('button',{onClick:save,className:"btn-p",style:{padding:"9px 20px",fontSize:13,fontWeight:600}},"Guardar")
+      )
+    ),
+
+    editModal&&h(Modal,{title:"Editar Servicio de Mantenimiento",sub:`ID: ${editModal.id}`,onClose:()=>setEditModal(null)},
+      h('div',{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}},
+        h(Field,{label:"Unidad",value:editModal.unit,onChange:v=>setEditModal(p=>({...p,unit:v})),half:true,
+          opts:[{v:"",l:"Seleccionar"},...units.map(u=>({v:u.id,l:`${u.plates} — ${u.model}`}))]}),
+        h(Field,{label:"Tipo",value:editModal.type,onChange:v=>setEditModal(p=>({...p,type:v})),half:true,
+          opts:["Preventivo","Correctivo"].map(x=>({v:x,l:x}))}),
+        h(Field,{label:"Categoría",value:editModal.category,onChange:v=>setEditModal(p=>({...p,category:v})),half:true,
+          opts:["Aceite","Frenos","Llantas","Motor","Eléctrico","Suspensión"].map(x=>({v:x,l:x}))}),
+        h(Field,{label:"Fecha",value:editModal.date,onChange:v=>setEditModal(p=>({...p,date:v})),type:"date",half:true}),
+        h(Field,{label:"Costo (MXN)",value:String(editModal.cost||""),onChange:v=>setEditModal(p=>({...p,cost:v})),type:"number",half:true}),
+        h(Field,{label:"Estado",value:editModal.status,onChange:v=>setEditModal(p=>({...p,status:v})),half:true,
+          opts:["programado","en proceso","completado"].map(x=>({v:x,l:ST[x]?.label||x}))}),
+        h(Field,{label:"Descripción",value:editModal.description||"",onChange:v=>setEditModal(p=>({...p,description:v}))})
+      ),
+      h('div',{style:{display:"flex",gap:8,justifyContent:"flex-end",marginTop:8}},
+        h('button',{onClick:()=>setEditModal(null),className:"btn-s",
+          style:{padding:"9px 18px",fontSize:13,fontWeight:600}},"Cancelar"),
+        h('button',{onClick:saveEdit,className:"btn-p",style:{padding:"9px 20px",fontSize:13,fontWeight:600}},"Guardar Cambios")
       )
     )
   );
@@ -2347,11 +2350,55 @@ function MapRoutes({trips,units,drivers}){
     "Guadalajara|León":120,"León|Guadalajara":120,
     "Guadalajara|Colima":180,"Colima|Guadalajara":180,
   };
-  const distKm=DISTS[`${from}|${to}`]||DISTS[`${to}|${from}`]||600;
+  // Real road route state (from OSRM)
+  const [realRoute,setRealRoute]=useState(null); // {distKm, durationMin, coords}
+  const [routeLoading,setRouteLoading]=useState(false);
+  const routeLayerRef=useRef(null);
+
+  const distKm=realRoute?.distKm||DISTS[`${from}|${to}`]||DISTS[`${to}|${from}`]||600;
   const rFuel=Math.round(distKm/parseFloat(eff||4));
-  const rHrs=Math.round(distKm/75);
+  const rHrs=realRoute?Math.floor(realRoute.durationMin/60):Math.round(distKm/75);
+  const rMin=realRoute?Math.round(realRoute.durationMin%60):0;
   const activeTrips=trips.filter(t=>["en curso","programado"].includes(t.status));
   const cityList=Object.keys(CITIES);
+
+  // Fetch real road route from OSRM (free, no API key)
+  async function fetchRealRoute(fromCity,toCity){
+    const o=CITIES[fromCity],d=CITIES[toCity];
+    if(!o||!d)return;
+    setRouteLoading(true);
+    try{
+      const url=`https://router.project-osrm.org/route/v1/driving/${o[1]},${o[0]};${d[1]},${d[0]}?overview=full&geometries=geojson&steps=false`;
+      const res=await fetch(url);
+      const data=await res.json();
+      if(data.routes&&data.routes[0]){
+        const route=data.routes[0];
+        const distKm=Math.round(route.distance/1000);
+        const durationMin=Math.round(route.duration/60);
+        const coords=route.geometry.coordinates.map(c=>[c[1],c[0]]); // [lat,lng]
+        setRealRoute({distKm,durationMin,coords});
+        // Draw real route on map
+        if(window.L&&leafletMapRef.current){
+          const L=window.L;
+          if(routeLayerRef.current)leafletMapRef.current.removeLayer(routeLayerRef.current);
+          const line=L.polyline(coords,{color:"#1447E6",weight:5,opacity:0.85,dashArray:null});
+          line.addTo(leafletMapRef.current);
+          routeLayerRef.current=line;
+          leafletMapRef.current.fitBounds(line.getBounds(),{padding:[40,40]});
+        }
+      }
+    }catch(e){setRealRoute(null);}
+    setRouteLoading(false);
+  }
+
+  // Auto-fetch when from/to changes
+  useEffect(()=>{
+    setRealRoute(null);
+    if(routeLayerRef.current&&window.L&&leafletMapRef.current){
+      leafletMapRef.current.removeLayer(routeLayerRef.current);
+      routeLayerRef.current=null;
+    }
+  },[from,to]);
 
   const STATUS_COLORS={"en curso":"#1447E6","programado":"#5C2BBD","finalizado":"#0A7C4B","cancelado":"#C0152E"};
 
@@ -2450,14 +2497,14 @@ function MapRoutes({trips,units,drivers}){
     leafletMapRef.current.fitBounds(L.latLngBounds([o,d]),{padding:[40,40]});
   },[selTrip,mapReady]);
 
-  // Pan to route when from/to changes
+  // Pan to route when from/to changes (only if no real OSRM route drawn)
   useEffect(()=>{
-    if(!mapReady||!window.L)return;
+    if(!mapReady||!window.L||realRoute)return;
     const o=CITIES[from],d=CITIES[to];
     if(!o||!d)return;
     const L=window.L;
     leafletMapRef.current.fitBounds(L.latLngBounds([o,d]),{padding:[60,60]});
-  },[from,to,mapReady]);
+  },[from,to,mapReady,realRoute]);
 
   function openInGoogleMaps(){
     window.open(`https://www.google.com/maps/dir/${encodeURIComponent(CITIES[from]?.join(','))}/${encodeURIComponent(CITIES[to]?.join(','))}/?travelmode=driving`,'_blank');
@@ -2472,12 +2519,16 @@ function MapRoutes({trips,units,drivers}){
     // Calculadora
     h('div',{style:{background:"#fff",border:`1px solid ${C.border}`,borderRadius:8,padding:"16px 20px"}},
       h('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}},
-        h('div',{style:{fontSize:13,fontWeight:700,color:C.text}},"📍 Planificador de Ruta"),
+        h('div',null,
+          h('div',{style:{fontSize:13,fontWeight:700,color:C.text}},"📍 Planificador de Ruta"),
+          h('div',{style:{fontSize:11.5,color:C.textLight,marginTop:2}},
+            realRoute?"✅ Ruta real por carretera calculada":"Estimado por línea recta · Calcula ruta real por carretera")
+        ),
         h('button',{onClick:openInGoogleMaps,style:{padding:"7px 14px",fontSize:12.5,fontWeight:600,borderRadius:6,cursor:"pointer",border:`1px solid ${C.primary}`,background:C.primaryLt,color:C.primary,display:"flex",alignItems:"center",gap:6}},
-          "↗ Abrir en Google Maps"
+          "↗ Google Maps"
         )
       ),
-      h('div',{style:{display:"grid",gridTemplateColumns:isMobile?"1fr":isTablet?"1fr 1fr":"1fr 1fr 130px",gap:12,marginBottom:14}},
+      h('div',{style:{display:"grid",gridTemplateColumns:isMobile?"1fr":isTablet?"1fr 1fr":"1fr 1fr 130px 160px",gap:12,marginBottom:14}},
         h('div',null,
           h('label',{style:{display:"block",fontSize:11.5,fontWeight:600,color:C.textMid,marginBottom:4,textTransform:"uppercase",letterSpacing:".07em"}},"Origen"),
           h('select',{value:from,onChange:e=>setFrom(e.target.value),className:"inp",style:{appearance:"none"}},
@@ -2493,17 +2544,29 @@ function MapRoutes({trips,units,drivers}){
         h('div',null,
           h('label',{style:{display:"block",fontSize:11.5,fontWeight:600,color:C.textMid,marginBottom:4,textTransform:"uppercase",letterSpacing:".07em"}},"km/L"),
           h('input',{type:"number",value:eff,onChange:e=>setEff(e.target.value),className:"inp",step:"0.1",min:"1"})
+        ),
+        h('div',{style:{display:"flex",flexDirection:"column",justifyContent:"flex-end"}},
+          h('button',{
+            onClick:()=>fetchRealRoute(from,to),
+            disabled:routeLoading,
+            style:{padding:"9px 14px",fontSize:12.5,fontWeight:700,borderRadius:7,cursor:routeLoading?"wait":"pointer",
+              border:"none",background:routeLoading?"#93BFFC":"#1447E6",color:"#fff",
+              display:"flex",alignItems:"center",gap:6,justifyContent:"center",
+              boxShadow:"0 2px 8px rgba(20,71,230,.3)",transition:"background .15s"}},
+            routeLoading?"⏳ Calculando...":"🛣️ Ruta Real"
+          )
         )
       ),
       h('div',{style:{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":isTablet?"1fr 1fr":"repeat(4,1fr)",gap:10}},
-        [["🛣️ Distancia",`${distKm.toLocaleString("es-MX")} km`,C.primary],
-         ["⏱️ Tiempo",`~${rHrs} hrs`,C.info],
-         ["⛽ Combustible",`${rFuel.toLocaleString("es-MX")} L`,C.warning],
-         ["💰 Costo est.",new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN",maximumFractionDigits:0}).format(rFuel*21),C.success]
-        ].map(([l,v,col])=>
+        [["🛣️ Distancia",`${distKm.toLocaleString("es-MX")} km`,C.primary,realRoute?"(carretera real)":"(estimado)"],
+         ["⏱️ Tiempo",realRoute?`${rHrs}h ${rMin}m`:`~${rHrs} hrs`,C.info,realRoute?"(tiempo real)":"(estimado)"],
+         ["⛽ Combustible",`${rFuel.toLocaleString("es-MX")} L`,C.warning,"basado en km/L"],
+         ["💰 Costo est.",new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN",maximumFractionDigits:0}).format(rFuel*21),C.success,"~$21/L Pemex"]
+        ].map(([l,v,col,sub])=>
           h('div',{key:l,style:{background:col+"0A",border:`1px solid ${col}25`,borderRadius:7,padding:"10px 12px"}},
-            h('div',{style:{fontSize:11,color:C.textMid,marginBottom:3}},l),
-            h('div',{style:{fontSize:16,fontWeight:700,color:col}},v)
+            h('div',{style:{fontSize:11,color:C.textMid,marginBottom:2}},l),
+            h('div',{style:{fontSize:16,fontWeight:700,color:col}},v),
+            h('div',{style:{fontSize:10,color:C.textLight,marginTop:2}},sub)
           )
         )
       )
@@ -3393,21 +3456,53 @@ function Rentabilidad({units,trips,fuel,maint,drivers}){
 }
 
 // ── CIERRE DE MES ────────────────────────────────────────────────────────────
-function Cierre({trips,fuel,units,drivers}){
+function Cierre({trips,fuel,units,drivers,setTrips,setFuel,user}){
   const {isMobile,isTablet}=useBP();
+  const isAdmin=(user?.role==="Administrador");
   const MONTHS=useMemo(()=>{
     const ms=new Set();
+    // Include all months 2024-2026 so admin can always pick any month
+    for(let y=2024;y<=2026;y++)for(let m=1;m<=12;m++)ms.add(`${y}-${String(m).padStart(2,"0")}`);
     trips.forEach(t=>t.departDate&&ms.add(t.departDate.slice(0,7)));
     fuel.forEach(f=>f.month&&ms.add(f.month));
     return [...ms].sort().reverse();
   },[trips,fuel]);
-  const [sel,setSel]=useState(MONTHS[0]||"2025-01");
+  const [sel,setSel]=useState(()=>{
+    const cur=new Date().toISOString().slice(0,7);
+    return MONTHS.includes(cur)?cur:(MONTHS[0]||"2025-01");
+  });
   const [tab,setTab]=useState("resumen");
   const [closed,setClosed]=useState([]);
+  const [addModal,setAddModal]=useState(null); // "viaje" | "combustible"
+  const [addForm,setAddForm]=useState({});
   const mLbl=m=>{const[y,mo]=m.split("-");return`${MONTHS_ES[+mo-1]} ${y}`;};
-  const mTrips=trips.filter(t=>t.departDate?.slice(0,7)===sel);
+  const mTrips=trips.filter(t=>t.departDate?.slice(0,7)===sel||t.month===sel);
   const mFuel=fuel.filter(f=>f.month===sel);
   const isClosed=closed.includes(sel);
+
+  // Add pending trip from cierre
+  function openAddTrip(){
+    setAddForm({origin:"",destination:"",client:"",cargoType:"Carga General",weight:"",
+      departDate:`${sel}-01`,arrivalDate:`${sel}-01`,unit:"",driver:"",status:"finalizado",
+      km:"",fuelEst:"",month:sel,revenue:"",driverFee:"",fines:"0"});
+    setAddModal("viaje");
+  }
+  function openAddFuel(){
+    setAddForm({unit:"",driver:"",date:`${sel}-01`,liters:"",cost:"",location:"",km:"",month:sel});
+    setAddModal("combustible");
+  }
+  function saveAdd(){
+    if(addModal==="viaje"&&setTrips){
+      const id="VC"+Date.now();
+      setTrips(prev=>[...prev,{...addForm,id,km:+addForm.km||0,weight:+addForm.weight||0,
+        revenue:+addForm.revenue||0,driverFee:+addForm.driverFee||0,fines:+addForm.fines||0,fuelEst:+addForm.fuelEst||0}]);
+    }
+    if(addModal==="combustible"&&setFuel){
+      const id="FC"+Date.now();
+      setFuel(prev=>[...prev,{...addForm,id,liters:+addForm.liters||0,cost:+addForm.cost||0,km:+addForm.km||0}]);
+    }
+    setAddModal(null);
+  }
 
   const uSum=units.map(u=>{
     const uT=mTrips.filter(t=>t.unit===u.id);
@@ -3439,13 +3534,22 @@ function Cierre({trips,fuel,units,drivers}){
         ),
         isClosed&&h('span',{style:{background:C.successBg,border:`1px solid ${C.successBd}`,borderRadius:5,padding:"4px 10px",fontSize:12,fontWeight:600,color:C.success}},"✔ Mes cerrado")
       ),
-      h('div',{style:{display:"flex",gap:10,alignItems:"center"}},
+      h('div',{style:{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}},
         h('select',{value:sel,onChange:e=>setSel(e.target.value),className:"inp",style:{width:"auto",appearance:"none",fontWeight:600,fontSize:14,paddingRight:24}},
           MONTHS.map(m=>h('option',{key:m,value:m},mLbl(m)))
         ),
+        isAdmin&&h('button',{onClick:openAddTrip,className:"btn-s",
+          style:{padding:"8px 13px",fontSize:12.5,fontWeight:600,display:"flex",alignItems:"center",gap:6}},
+          "➕ Viaje pendiente"),
+        isAdmin&&h('button',{onClick:openAddFuel,className:"btn-s",
+          style:{padding:"8px 13px",fontSize:12.5,fontWeight:600,display:"flex",alignItems:"center",gap:6}},
+          "⛽ Combustible pendiente"),
         !isClosed&&h('button',{onClick:()=>setClosed([...closed,sel]),className:"btn-p",style:{padding:"9px 16px",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:7}},
           h(Ic,{n:"check",s:13,c:"#fff"}),"Cerrar Mes"
-        )
+        ),
+        isClosed&&isAdmin&&h('button',{onClick:()=>setClosed(closed.filter(c=>c!==sel)),
+          style:{padding:"8px 13px",fontSize:12.5,fontWeight:600,borderRadius:7,cursor:"pointer",border:`1px solid ${C.warning}`,background:C.warningBg,color:C.warning}},
+          "🔓 Reabrir Mes")
       )
     ),
     h('div',{style:{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":isTablet?"repeat(3,1fr)":"repeat(5,1fr)",gap:12,marginBottom:18}},
@@ -3614,6 +3718,53 @@ function Cierre({trips,fuel,units,drivers}){
             );
           })
         )
+      )
+    ),
+
+    addModal==="viaje"&&h(Modal,{title:"Agregar Viaje Pendiente",sub:`Mes: ${mLbl(sel)}`,onClose:()=>setAddModal(null),width:580},
+      h('div',{style:{background:C.warningBg,border:`1px solid ${C.warningBd}`,borderRadius:7,padding:"10px 14px",marginBottom:16,fontSize:12.5,color:C.warning}},
+        "⚠️ Este viaje se agregará al mes ",h('strong',null,mLbl(sel)),". Solo administradores pueden hacer esto."
+      ),
+      h('div',{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}},
+        h(Field,{label:"Origen",value:addForm.origin||"",onChange:v=>setAddForm(p=>({...p,origin:v})),half:true,required:true}),
+        h(Field,{label:"Destino",value:addForm.destination||"",onChange:v=>setAddForm(p=>({...p,destination:v})),half:true,required:true}),
+        h(Field,{label:"Cliente",value:addForm.client||"",onChange:v=>setAddForm(p=>({...p,client:v})),half:true}),
+        h(Field,{label:"Tipo de carga",value:addForm.cargoType||"",onChange:v=>setAddForm(p=>({...p,cargoType:v})),half:true}),
+        h(Field,{label:"Unidad",value:addForm.unit||"",onChange:v=>setAddForm(p=>({...p,unit:v})),half:true,
+          opts:[{v:"",l:"Seleccionar"},...units.map(u=>({v:u.id,l:`${u.plates}`}))]}),
+        h(Field,{label:"Operador",value:addForm.driver||"",onChange:v=>setAddForm(p=>({...p,driver:v})),half:true,
+          opts:[{v:"",l:"Seleccionar"},...drivers.map(d=>({v:d.id,l:d.name.split(" ").slice(0,2).join(" ")}))]}),
+        h(Field,{label:"Fecha Salida",value:addForm.departDate||"",onChange:v=>setAddForm(p=>({...p,departDate:v})),type:"date",half:true}),
+        h(Field,{label:"Fecha Llegada",value:addForm.arrivalDate||"",onChange:v=>setAddForm(p=>({...p,arrivalDate:v})),type:"date",half:true}),
+        h(Field,{label:"Km recorridos",value:addForm.km||"",onChange:v=>setAddForm(p=>({...p,km:v})),type:"number",half:true}),
+        h(Field,{label:"Ingreso (MXN)",value:addForm.revenue||"",onChange:v=>setAddForm(p=>({...p,revenue:v})),type:"number",half:true}),
+        h(Field,{label:"Pago Operador",value:addForm.driverFee||"",onChange:v=>setAddForm(p=>({...p,driverFee:v})),type:"number",half:true}),
+        h(Field,{label:"Multas",value:addForm.fines||"0",onChange:v=>setAddForm(p=>({...p,fines:v})),type:"number",half:true})
+      ),
+      h('div',{style:{display:"flex",gap:8,justifyContent:"flex-end",marginTop:8}},
+        h('button',{onClick:()=>setAddModal(null),className:"btn-s",style:{padding:"9px 18px",fontSize:13,fontWeight:600}},"Cancelar"),
+        h('button',{onClick:saveAdd,className:"btn-p",style:{padding:"9px 20px",fontSize:13,fontWeight:600}},"✓ Agregar Viaje")
+      )
+    ),
+
+    addModal==="combustible"&&h(Modal,{title:"Agregar Carga de Combustible Pendiente",sub:`Mes: ${mLbl(sel)}`,onClose:()=>setAddModal(null)},
+      h('div',{style:{background:C.warningBg,border:`1px solid ${C.warningBd}`,borderRadius:7,padding:"10px 14px",marginBottom:16,fontSize:12.5,color:C.warning}},
+        "⚠️ Esta carga se agregará al mes ",h('strong',null,mLbl(sel)),". Solo administradores pueden hacer esto."
+      ),
+      h('div',{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}},
+        h(Field,{label:"Unidad",value:addForm.unit||"",onChange:v=>setAddForm(p=>({...p,unit:v})),half:true,required:true,
+          opts:[{v:"",l:"Seleccionar"},...units.map(u=>({v:u.id,l:`${u.plates}`}))]}),
+        h(Field,{label:"Operador",value:addForm.driver||"",onChange:v=>setAddForm(p=>({...p,driver:v})),half:true,
+          opts:[{v:"",l:"Seleccionar"},...drivers.map(d=>({v:d.id,l:d.name.split(" ").slice(0,2).join(" ")}))]}),
+        h(Field,{label:"Fecha",value:addForm.date||"",onChange:v=>setAddForm(p=>({...p,date:v})),type:"date",half:true}),
+        h(Field,{label:"Estación / Ubicación",value:addForm.location||"",onChange:v=>setAddForm(p=>({...p,location:v})),half:true}),
+        h(Field,{label:"Litros",value:addForm.liters||"",onChange:v=>setAddForm(p=>({...p,liters:v})),type:"number",half:true}),
+        h(Field,{label:"Costo Total (MXN)",value:addForm.cost||"",onChange:v=>setAddForm(p=>({...p,cost:v})),type:"number",half:true}),
+        h(Field,{label:"Odómetro (km)",value:addForm.km||"",onChange:v=>setAddForm(p=>({...p,km:v})),type:"number",half:true})
+      ),
+      h('div',{style:{display:"flex",gap:8,justifyContent:"flex-end",marginTop:8}},
+        h('button',{onClick:()=>setAddModal(null),className:"btn-s",style:{padding:"9px 18px",fontSize:13,fontWeight:600}},"Cancelar"),
+        h('button',{onClick:saveAdd,className:"btn-p",style:{padding:"9px 20px",fontSize:13,fontWeight:600}},"⛽ Agregar Combustible")
       )
     )
   );
@@ -3804,7 +3955,7 @@ function App(){
           active==="fuel"&&h(Fuel,{fuel,setFuel,units,drivers}),
           active==="maint"&&h(Maint,{maint,setMaint,units}),
           active==="rentabilidad"&&h(Rentabilidad,{units,trips,fuel,maint,drivers}),
-          active==="cierre"&&h(Cierre,{trips,fuel,units,drivers}),
+          active==="cierre"&&h(Cierre,{trips,fuel,units,drivers,setTrips,setFuel,user}),
           active==="gps"&&h(ModGPS,{units,drivers,trips}),
           active==="motor"&&h(ModMotor,{units,drivers}),
           active==="fuelSensor"&&h(ModFuelSensor,{units,drivers,fuel}),
@@ -3822,6 +3973,40 @@ function App(){
 
 ReactDOM.createRoot(document.getElementById('root')).render(h(App));
 }
+</script>
+<script>
+// Loader with multiple CDN fallbacks
+(function(){
+  var cdns = [
+    ['https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js',
+     'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js'],
+    ['https://unpkg.com/react@18.2.0/umd/react.production.min.js',
+     'https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js'],
+    ['https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js',
+     'https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js'],
+  ];
+  var idx=0;
+  function tryLoad(i){
+    if(i>=cdns.length){
+      document.getElementById('root').innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;flex-direction:column;gap:16px;background:#0D1B2A;color:#fff"><div style="font-size:32px">🚛</div><div style="font-size:18px;font-weight:700">FleetOS</div><div style="font-size:14px;color:rgba(255,255,255,.6);text-align:center;max-width:360px">No se pudo cargar la aplicación.<br>Necesita conexión a internet la primera vez que abre el archivo.<br><br>Si ya tiene internet, intente recargar (F5).</div><button onclick="location.reload()" style="margin-top:8px;padding:10px 24px;background:#1447E6;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600">Recargar</button></div>';
+      return;
+    }
+    var s1=document.createElement('script');
+    s1.src=cdns[i][0];
+    s1.crossOrigin='anonymous';
+    s1.onerror=function(){tryLoad(i+1);};
+    s1.onload=function(){
+      var s2=document.createElement('script');
+      s2.src=cdns[i][1];
+      s2.crossOrigin='anonymous';
+      s2.onerror=function(){tryLoad(i+1);};
+      s2.onload=function(){ window.startApp(); };
+      document.head.appendChild(s2);
+    };
+    document.head.appendChild(s1);
+  }
+  tryLoad(0);
+})();
 </script>
 </body>
 </html>
