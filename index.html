@@ -1335,7 +1335,7 @@ function ChartPanel({title,sub,children,legend}){
 // ── TRIPS ────────────────────────────────────────────────────────────────────
 function Trips({trips,setTrips,units,drivers}){
   const {isMobile,isTablet}=useBP();
-  const [view,setView]=useState("charts");
+  const [view,setView]=useState("table");
   const [subview,setSubview]=useState("periodo"); // periodo | trailer
   const [period,setPeriod]=useState("month");
   const [filt,setFilt]=useState("all");
@@ -1415,7 +1415,7 @@ function Trips({trips,setTrips,units,drivers}){
     // ── Top toolbar ─────────────────────────────────────────────────────
     h('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}},
       h('div',{style:{display:"flex",gap:6}},
-        [{v:"charts",l:"📊 Gráficas"},{v:"table",l:"📋 Tabla"}].map(({v,l})=>
+        [{v:"table",l:"📋 Tabla"},{v:"charts",l:"📊 Gráficas"}].map(({v,l})=>
           h('button',{key:v,onClick:()=>setView(v),
             style:{padding:"7px 14px",fontSize:13,fontWeight:600,borderRadius:7,cursor:"pointer",
               border:`1px solid ${view===v?C.primary:C.border}`,
@@ -1442,6 +1442,56 @@ function Trips({trips,setTrips,units,drivers}){
         h('button',{onClick:()=>setModal(true),className:"btn-p",
           style:{padding:"8px 14px",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:7}},
           h(Ic,{n:"plus",s:13,c:"#fff"}),isMobile?"Nuevo":"Nuevo Viaje"
+        )
+      )
+    ),
+
+    // ── TABLE VIEW ───────────────────────────────────────────────────────
+    view==="table"&&h('div',{style:{display:"flex",flexDirection:"column",gap:12}},
+      h('div',{className:"tabscroll",style:{borderBottom:`1px solid ${C.border}`,marginBottom:4,display:"flex"}},
+        opts.map(s=>h('button',{key:s,onClick:()=>setFilt(s),className:`tab${filt===s?" on":""}` },
+          s==="all"?"Todos":ST[s]?.label||s))
+      ),
+      h('div',{style:{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}},
+        h('div',{className:"tscroll"},
+          h('table',{style:{width:"100%",borderCollapse:"collapse",minWidth:700}},
+            h(THead,{cols:["ID","Ruta","Cliente","Unidad","Chofer","Fechas","Km","Estado","Acción"]}),
+            h('tbody',null,
+              shown.map((t,i)=>{
+                const unit=units.find(u=>u.id===t.unit);
+                const drv=drivers.find(d=>d.id===t.driver);
+                return h('tr',{key:t.id,className:"row-hover",
+                  style:{borderBottom:i<shown.length-1?`1px solid ${C.borderLt}`:"none"}},
+                  h('td',{style:{padding:"10px 14px",fontSize:12,fontFamily:"IBM Plex Mono,monospace",color:C.textMid}},t.id),
+                  h('td',{style:{padding:"10px 14px"}},
+                    h('div',{style:{fontSize:13,fontWeight:600,color:C.text}},t.origin),
+                    h('div',{style:{fontSize:11.5,color:C.textLight}},"→ ",t.destination)
+                  ),
+                  h('td',{style:{padding:"10px 14px",fontSize:13,color:C.text}},t.client),
+                  h('td',{style:{padding:"10px 14px",fontSize:12.5,fontFamily:"IBM Plex Mono,monospace",fontWeight:600,color:C.text}},unit?.plates||"—"),
+                  h('td',{style:{padding:"10px 14px",fontSize:12.5,color:C.textMid}},drv?drv.name.split(" ").slice(0,2).join(" "):"—"),
+                  h('td',{style:{padding:"10px 14px",fontSize:11.5,color:C.textLight,whiteSpace:"nowrap"}},
+                    h('div',null,t.departDate),h('div',null,t.arrivalDate)),
+                  h('td',{style:{padding:"10px 14px",fontSize:12.5,fontFamily:"IBM Plex Mono,monospace",color:C.textMid}},fmt(t.km)," km"),
+                  h('td',{style:{padding:"10px 14px"}},h(Badge,{status:t.status})),
+                  h('td',{style:{padding:"10px 14px"}},
+                    h('div',{style:{display:"flex",gap:5,flexWrap:"wrap"}},
+                      t.status==="programado"&&h('button',{onClick:()=>chg(t.id,"en curso"),
+                        style:{background:C.primaryLt,color:C.primary,border:`1px solid ${C.primary}30`,borderRadius:5,padding:"4px 8px",fontSize:11.5,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}},"▶ Iniciar"),
+                      t.status==="en curso"&&h('button',{onClick:()=>chg(t.id,"finalizado"),
+                        style:{background:C.successBg,color:C.success,border:`1px solid ${C.successBd}`,borderRadius:5,padding:"4px 8px",fontSize:11.5,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}},"✓ Finalizar"),
+                      t.status==="en curso"&&h('button',{onClick:()=>chg(t.id,"cancelado"),
+                        style:{background:C.dangerBg,color:C.danger,border:`1px solid ${C.dangerBd}`,borderRadius:5,padding:"4px 8px",fontSize:11.5,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}},"✕ Cancelar"),
+                      h('button',{onClick:()=>openEdit(t),
+                        style:{background:C.surfaceAlt,color:C.textMid,border:`1px solid ${C.border}`,borderRadius:5,padding:"4px 8px",fontSize:11.5,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}},"✏️")
+                    )
+                  )
+                );
+              }),
+              shown.length===0&&h('tr',null,
+                h('td',{colSpan:9,style:{textAlign:"center",padding:"32px 0",color:C.textLight,fontSize:13}},"Sin viajes en esta categoría."))
+            )
+          )
         )
       )
     ),
@@ -1591,56 +1641,6 @@ function Trips({trips,setTrips,units,drivers}){
       )
     ),
 
-    // ── TABLE VIEW ───────────────────────────────────────────────────────
-    view==="table"&&h('div',{style:{display:"flex",flexDirection:"column",gap:12}},
-      h('div',{className:"tabscroll",style:{borderBottom:`1px solid ${C.border}`,marginBottom:4,display:"flex"}},
-        opts.map(s=>h('button',{key:s,onClick:()=>setFilt(s),className:`tab${filt===s?" on":""}` },
-          s==="all"?"Todos":ST[s]?.label||s))
-      ),
-      h('div',{style:{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}},
-        h('div',{className:"tscroll"},
-          h('table',{style:{width:"100%",borderCollapse:"collapse",minWidth:700}},
-            h(THead,{cols:["ID","Ruta","Cliente","Unidad","Chofer","Fechas","Km","Estado","Acción"]}),
-            h('tbody',null,
-              shown.map((t,i)=>{
-                const unit=units.find(u=>u.id===t.unit);
-                const drv=drivers.find(d=>d.id===t.driver);
-                return h('tr',{key:t.id,className:"row-hover",
-                  style:{borderBottom:i<shown.length-1?`1px solid ${C.borderLt}`:"none"}},
-                  h('td',{style:{padding:"10px 14px",fontSize:12,fontFamily:"IBM Plex Mono,monospace",color:C.textMid}},t.id),
-                  h('td',{style:{padding:"10px 14px"}},
-                    h('div',{style:{fontSize:13,fontWeight:600,color:C.text}},t.origin),
-                    h('div',{style:{fontSize:11.5,color:C.textLight}},"→ ",t.destination)
-                  ),
-                  h('td',{style:{padding:"10px 14px",fontSize:13,color:C.text}},t.client),
-                  h('td',{style:{padding:"10px 14px",fontSize:12.5,fontFamily:"IBM Plex Mono,monospace",fontWeight:600,color:C.text}},unit?.plates||"—"),
-                  h('td',{style:{padding:"10px 14px",fontSize:12.5,color:C.textMid}},drv?drv.name.split(" ").slice(0,2).join(" "):"—"),
-                  h('td',{style:{padding:"10px 14px",fontSize:11.5,color:C.textLight,whiteSpace:"nowrap"}},
-                    h('div',null,t.departDate),h('div',null,t.arrivalDate)),
-                  h('td',{style:{padding:"10px 14px",fontSize:12.5,fontFamily:"IBM Plex Mono,monospace",color:C.textMid}},fmt(t.km)," km"),
-                  h('td',{style:{padding:"10px 14px"}},h(Badge,{status:t.status})),
-                  h('td',{style:{padding:"10px 14px"}},
-                    h('div',{style:{display:"flex",gap:5,flexWrap:"wrap"}},
-                      t.status==="programado"&&h('button',{onClick:()=>chg(t.id,"en curso"),
-                        style:{background:C.primaryLt,color:C.primary,border:`1px solid ${C.primary}30`,borderRadius:5,padding:"4px 8px",fontSize:11.5,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}},"▶ Iniciar"),
-                      t.status==="en curso"&&h('button',{onClick:()=>chg(t.id,"finalizado"),
-                        style:{background:C.successBg,color:C.success,border:`1px solid ${C.successBd}`,borderRadius:5,padding:"4px 8px",fontSize:11.5,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}},"✓ Finalizar"),
-                      t.status==="en curso"&&h('button',{onClick:()=>chg(t.id,"cancelado"),
-                        style:{background:C.dangerBg,color:C.danger,border:`1px solid ${C.dangerBd}`,borderRadius:5,padding:"4px 8px",fontSize:11.5,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}},"✕ Cancelar"),
-                      h('button',{onClick:()=>openEdit(t),
-                        style:{background:C.surfaceAlt,color:C.textMid,border:`1px solid ${C.border}`,borderRadius:5,padding:"4px 8px",fontSize:11.5,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}},"✏️")
-                    )
-                  )
-                );
-              }),
-              shown.length===0&&h('tr',null,
-                h('td',{colSpan:9,style:{textAlign:"center",padding:"32px 0",color:C.textLight,fontSize:13}},"Sin viajes en esta categoría."))
-            )
-          )
-        )
-      )
-    ),
-
     modal&&h(Modal,{title:editId?"Editar Viaje":"Registrar Nuevo Viaje",width:640,
       onClose:()=>{setModal(false);setEditId(null);setForm(ef);}},
       h('div',{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}},
@@ -1683,7 +1683,7 @@ function Trips({trips,setTrips,units,drivers}){
 function Fuel({fuel,setFuel,units,drivers}){
   const {isMobile,isTablet}=useBP();
   const [modal,setModal]=useState(false);
-  const [fuelView,setFuelView]=useState("charts");
+  const [fuelView,setFuelView]=useState("table");
   const [fuelSubview,setFuelSubview]=useState("periodo");
   const [fuelPeriod,setFuelPeriod]=useState("month");
   const FUEL_MONTH_OPTS=(()=>{const r=[];for(let y=2024;y<=2026;y++)for(let m=1;m<=12;m++)r.push(`${y}-${String(m).padStart(2,"0")}`);return r;})();
@@ -1778,7 +1778,7 @@ function Fuel({fuel,setFuel,units,drivers}){
     // ── Toolbar ──────────────────────────────────────────────────────────
     h('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}},
       h('div',{style:{display:"flex",gap:6}},
-        [{v:"charts",l:"📊 Gráficas"},{v:"table",l:"📋 Registros"}].map(({v,l})=>
+        [{v:"table",l:"📋 Registros"},{v:"charts",l:"📊 Gráficas"}].map(({v,l})=>
           h('button',{key:v,onClick:()=>setFuelView(v),
             style:{padding:"7px 14px",fontSize:13,fontWeight:600,borderRadius:7,cursor:"pointer",
               border:`1px solid ${fuelView===v?C.primary:C.border}`,
@@ -1823,6 +1823,64 @@ function Fuel({fuel,setFuel,units,drivers}){
         h('div',{key:l,style:{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"9px 16px"}},
           h('div',{style:{fontSize:11,color:C.textLight,textTransform:"uppercase",letterSpacing:".06em",marginBottom:2}},l),
           h('div',{style:{fontSize:17,fontWeight:700,color:col}},v)
+        )
+      )
+    ),
+
+    // ── TABLE VIEW ───────────────────────────────────────────────────────
+    fuelView==="table"&&h('div',{style:{display:"flex",flexDirection:"column",gap:14}},
+      h('div',{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12}},
+        units.map(u=>{
+          const recs=fuel.filter(f=>f.unit===u.id);
+          if(!recs.length)return null;
+          const tL=recs.reduce((a,b)=>a+b.liters,0);
+          const tC=recs.reduce((a,b)=>a+b.cost,0);
+          return h('div',{key:u.id,className:"card",style:{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"14px 16px"}},
+            h('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}},
+              h('div',null,
+                h('div',{style:{fontSize:14,fontWeight:700,color:C.text,fontFamily:"IBM Plex Mono,monospace"}},u.plates),
+                h('div',{style:{fontSize:12,color:C.textMid}},u.model)
+              ),
+              h(Badge,{status:u.status})
+            ),
+            h('div',{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}},
+              [["Litros",`${fmt(tL)} L`,C.primary],["Costo",fmtM(tC),C.warning],
+               ["Cargas",recs.length,C.info],["$/L",`$${tC&&tL?(tC/tL).toFixed(2):"—"}`,C.textMid]
+              ].map(([l,v,col])=>
+                h('div',{key:l,style:{background:C.surfaceAlt,borderRadius:6,padding:"7px 9px"}},
+                  h('div',{style:{fontSize:10.5,color:C.textLight,marginBottom:2}},l),
+                  h('div',{style:{fontSize:13,fontWeight:700,color:col}},v)
+                )
+              )
+            )
+          );
+        })
+      ),
+      h('div',{style:{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}},
+        h('div',{style:{padding:"13px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between"}},
+          h('span',{style:{fontSize:13,fontWeight:700,color:C.text}},"Registro de Cargas"),
+          h('span',{style:{fontSize:12.5,color:C.textMid}},fuel.length," registros")
+        ),
+        h('div',{className:"tscroll"},
+          h('table',{style:{width:"100%",borderCollapse:"collapse",minWidth:680}},
+            h(THead,{cols:["ID","Unidad","Operador","Fecha","Mes","Litros","Costo","$/L","Estación"]}),
+            h('tbody',null,fuel.map((f,i)=>{
+              const u=units.find(u=>u.id===f.unit);
+              const d=drivers.find(d=>d.id===f.driver);
+              return h('tr',{key:f.id,className:"row-hover",
+                style:{borderBottom:i<fuel.length-1?`1px solid ${C.borderLt}`:"none"}},
+                h('td',{style:{padding:"9px 14px",fontSize:12,fontFamily:"IBM Plex Mono,monospace",color:C.textLight}},f.id),
+                h('td',{style:{padding:"9px 14px",fontSize:12.5,fontWeight:700,color:C.text,fontFamily:"IBM Plex Mono,monospace"}},u?.plates||f.unit),
+                h('td',{style:{padding:"9px 14px",fontSize:13,color:C.text}},d?d.name.split(" ").slice(0,2).join(" "):"—"),
+                h('td',{style:{padding:"9px 14px",fontSize:12.5,color:C.textMid}},f.date),
+                h('td',{style:{padding:"9px 14px",fontSize:12.5,color:C.textMid,fontFamily:"IBM Plex Mono,monospace"}},f.month||"—"),
+                h('td',{style:{padding:"9px 14px",fontSize:13,fontWeight:600,color:C.text}},fmt(f.liters)," L"),
+                h('td',{style:{padding:"9px 14px",fontSize:13,fontWeight:600,color:C.text}},fmtM(f.cost)),
+                h('td',{style:{padding:"9px 14px",fontSize:12.5,color:C.textMid}},"$",(f.cost/f.liters).toFixed(2)),
+                h('td',{style:{padding:"9px 14px",fontSize:12.5,color:C.textMid}},f.location)
+              );
+            }))
+          )
         )
       )
     ),
@@ -1952,64 +2010,6 @@ function Fuel({fuel,setFuel,units,drivers}){
                 );
               })
             )
-          )
-        )
-      )
-    ),
-
-    // ── TABLE VIEW ───────────────────────────────────────────────────────
-    fuelView==="table"&&h('div',{style:{display:"flex",flexDirection:"column",gap:14}},
-      h('div',{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12}},
-        units.map(u=>{
-          const recs=fuel.filter(f=>f.unit===u.id);
-          if(!recs.length)return null;
-          const tL=recs.reduce((a,b)=>a+b.liters,0);
-          const tC=recs.reduce((a,b)=>a+b.cost,0);
-          return h('div',{key:u.id,className:"card",style:{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"14px 16px"}},
-            h('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}},
-              h('div',null,
-                h('div',{style:{fontSize:14,fontWeight:700,color:C.text,fontFamily:"IBM Plex Mono,monospace"}},u.plates),
-                h('div',{style:{fontSize:12,color:C.textMid}},u.model)
-              ),
-              h(Badge,{status:u.status})
-            ),
-            h('div',{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}},
-              [["Litros",`${fmt(tL)} L`,C.primary],["Costo",fmtM(tC),C.warning],
-               ["Cargas",recs.length,C.info],["$/L",`$${tC&&tL?(tC/tL).toFixed(2):"—"}`,C.textMid]
-              ].map(([l,v,col])=>
-                h('div',{key:l,style:{background:C.surfaceAlt,borderRadius:6,padding:"7px 9px"}},
-                  h('div',{style:{fontSize:10.5,color:C.textLight,marginBottom:2}},l),
-                  h('div',{style:{fontSize:13,fontWeight:700,color:col}},v)
-                )
-              )
-            )
-          );
-        })
-      ),
-      h('div',{style:{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}},
-        h('div',{style:{padding:"13px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between"}},
-          h('span',{style:{fontSize:13,fontWeight:700,color:C.text}},"Registro de Cargas"),
-          h('span',{style:{fontSize:12.5,color:C.textMid}},fuel.length," registros")
-        ),
-        h('div',{className:"tscroll"},
-          h('table',{style:{width:"100%",borderCollapse:"collapse",minWidth:680}},
-            h(THead,{cols:["ID","Unidad","Operador","Fecha","Mes","Litros","Costo","$/L","Estación"]}),
-            h('tbody',null,fuel.map((f,i)=>{
-              const u=units.find(u=>u.id===f.unit);
-              const d=drivers.find(d=>d.id===f.driver);
-              return h('tr',{key:f.id,className:"row-hover",
-                style:{borderBottom:i<fuel.length-1?`1px solid ${C.borderLt}`:"none"}},
-                h('td',{style:{padding:"9px 14px",fontSize:12,fontFamily:"IBM Plex Mono,monospace",color:C.textLight}},f.id),
-                h('td',{style:{padding:"9px 14px",fontSize:12.5,fontWeight:700,color:C.text,fontFamily:"IBM Plex Mono,monospace"}},u?.plates||f.unit),
-                h('td',{style:{padding:"9px 14px",fontSize:13,color:C.text}},d?d.name.split(" ").slice(0,2).join(" "):"—"),
-                h('td',{style:{padding:"9px 14px",fontSize:12.5,color:C.textMid}},f.date),
-                h('td',{style:{padding:"9px 14px",fontSize:12.5,color:C.textMid,fontFamily:"IBM Plex Mono,monospace"}},f.month||"—"),
-                h('td',{style:{padding:"9px 14px",fontSize:13,fontWeight:600,color:C.text}},fmt(f.liters)," L"),
-                h('td',{style:{padding:"9px 14px",fontSize:13,fontWeight:600,color:C.text}},fmtM(f.cost)),
-                h('td',{style:{padding:"9px 14px",fontSize:12.5,color:C.textMid}},"$",(f.cost/f.liters).toFixed(2)),
-                h('td',{style:{padding:"9px 14px",fontSize:12.5,color:C.textMid}},f.location)
-              );
-            }))
           )
         )
       )
