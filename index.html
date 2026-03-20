@@ -2325,6 +2325,7 @@ function MapRoutes({trips,units,drivers}){
   const [from,setFrom]=useState("Guadalajara");
   const [to,setTo]=useState("Monterrey");
   const [eff,setEff]=useState("4.0");
+  const [ppl,setPpl]=useState("21.50"); // precio por litro MXN
   const [selTrip,setSelTrip]=useState(null);
   const [mapReady,setMapReady]=useState(false);
   const [routeInfo,setRouteInfo]=useState(null);
@@ -2365,7 +2366,8 @@ function MapRoutes({trips,units,drivers}){
   const routeLayerRef=useRef(null);
 
   const distKm=realRoute?.distKm||DISTS[`${from}|${to}`]||DISTS[`${to}|${from}`]||600;
-  const rFuel=Math.round(distKm/parseFloat(eff||4));
+  const effNum=parseFloat(eff)||4;
+  const rFuel=distKm/effNum;  // exact liters, no rounding
   const rHrs=realRoute?Math.floor(realRoute.durationMin/60):Math.round(distKm/75);
   const rMin=realRoute?Math.round(realRoute.durationMin%60):0;
   const activeTrips=trips.filter(t=>["en curso","programado"].includes(t.status));
@@ -2507,7 +2509,7 @@ function MapRoutes({trips,units,drivers}){
           "↗ Google Maps"
         )
       ),
-      h('div',{style:{display:"grid",gridTemplateColumns:isMobile?"1fr":isTablet?"1fr 1fr":"1fr 1fr 130px 160px",gap:12,marginBottom:14}},
+      h('div',{style:{display:"grid",gridTemplateColumns:isMobile?"1fr":isTablet?"1fr 1fr":"1fr 1fr 110px 110px 150px",gap:12,marginBottom:14}},
         h('div',null,
           h('label',{style:{display:"block",fontSize:11.5,fontWeight:600,color:C.textMid,marginBottom:4,textTransform:"uppercase",letterSpacing:".07em"}},"Origen"),
           h('select',{value:from,onChange:e=>setFrom(e.target.value),className:"inp",style:{appearance:"none"}},
@@ -2522,7 +2524,11 @@ function MapRoutes({trips,units,drivers}){
         ),
         h('div',null,
           h('label',{style:{display:"block",fontSize:11.5,fontWeight:600,color:C.textMid,marginBottom:4,textTransform:"uppercase",letterSpacing:".07em"}},"km/L"),
-          h('input',{type:"number",value:eff,onChange:e=>setEff(e.target.value),className:"inp",step:"0.1",min:"1"})
+          h('input',{type:"number",value:eff,onChange:e=>setEff(e.target.value),className:"inp",step:"0.1",min:"0.1"})
+        ),
+        h('div',null,
+          h('label',{style:{display:"block",fontSize:11.5,fontWeight:600,color:C.textMid,marginBottom:4,textTransform:"uppercase",letterSpacing:".07em"}},"$/L diésel"),
+          h('input',{type:"number",value:ppl,onChange:e=>setPpl(e.target.value),className:"inp",step:"0.01",min:"0.01"})
         ),
         h('div',{style:{display:"flex",flexDirection:"column",justifyContent:"flex-end"}},
           h('button',{
@@ -2539,8 +2545,8 @@ function MapRoutes({trips,units,drivers}){
       h('div',{style:{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":isTablet?"1fr 1fr":"repeat(4,1fr)",gap:10}},
         [["🛣️ Distancia",`${distKm.toLocaleString("es-MX")} km`,C.primary,realRoute?"(carretera real)":"(estimado)"],
          ["⏱️ Tiempo",realRoute?`${rHrs}h ${rMin}m`:`~${rHrs} hrs`,C.info,realRoute?"(tiempo real)":"(estimado)"],
-         ["⛽ Combustible",`${rFuel.toLocaleString("es-MX")} L`,C.warning,"basado en km/L"],
-         ["💰 Costo est.",new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN",maximumFractionDigits:0}).format(rFuel*21),C.success,"~$21/L Pemex"]
+         ["⛽ Combustible",`${rFuel.toFixed(1)} L`,C.warning,`${distKm} km ÷ ${effNum} km/L`],
+         ["💰 Costo est.",new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN",maximumFractionDigits:0}).format(rFuel*(parseFloat(ppl)||21.5)),C.success,`$${parseFloat(ppl)||21.5}/L × ${rFuel.toFixed(1)}L`]
         ].map(([l,v,col,sub])=>
           h('div',{key:l,style:{background:col+"0A",border:`1px solid ${col}25`,borderRadius:7,padding:"10px 12px"}},
             h('div',{style:{fontSize:11,color:C.textMid,marginBottom:2}},l),
