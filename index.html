@@ -1341,22 +1341,28 @@ function Trips({trips,setTrips,units,drivers}){
   const [filt,setFilt]=useState("all");
   const [modal,setModal]=useState(false);
   const [editId,setEditId]=useState(null);
-  // Generate months 2024-01 to 2026-12 dynamically
-  const ALL_MONTH_OPTS=(()=>{const r=[];for(let y=2024;y<=2026;y++)for(let m=1;m<=12;m++)r.push(`${y}-${String(m).padStart(2,"0")}`);return r;})();
-  const curMonth=new Date().toISOString().slice(0,7);
-  const ef={origin:"",destination:"",client:"",cargoType:"Alimentos",weight:"",departDate:"",arrivalDate:"",unit:"",driver:"",status:"programado",km:"",fuelEst:"",month:curMonth,notes:""};
+  const ef={origin:"",destination:"",client:"",cargoType:"Alimentos",weight:"",departDate:"",arrivalDate:"",unit:"",driver:"",status:"programado",km:"",fuelEst:"",notes:""};
   const [form,setForm]=useState(ef);
-  const upd=(k,v)=>setForm(p=>({...p,[k]:v}));
+  // Auto-update month when departDate changes
+  function upd(k,v){
+    setForm(p=>{
+      const next={...p,[k]:v};
+      if(k==="departDate"&&v&&v.length>=7) next.month=v.slice(0,7);
+      return next;
+    });
+  }
   function openEdit(t){
     setForm({...t,weight:String(t.weight||""),km:String(t.km||""),fuelEst:String(t.fuelEst||""),notes:t.notes||""});
     setEditId(t.id);setModal(true);
   }
   function save(){
     if(!form.origin||!form.destination||!form.unit)return;
+    // Derive month from departDate if not set
+    const month=form.month||(form.departDate?form.departDate.slice(0,7):"");
     if(editId){
-      setTrips(trips.map(t=>t.id===editId?{...t,...form,weight:+form.weight,km:+form.km,fuelEst:+form.fuelEst}:t));
+      setTrips(trips.map(t=>t.id===editId?{...t,...form,month,weight:+form.weight,km:+form.km,fuelEst:+form.fuelEst}:t));
     } else {
-      setTrips([...trips,{...form,id:`V${String(trips.length+1).padStart(3,"0")}`,weight:+form.weight,km:+form.km,fuelEst:+form.fuelEst}]);
+      setTrips([...trips,{...form,month,id:`V${String(trips.length+1).padStart(3,"0")}`,weight:+form.weight,km:+form.km,fuelEst:+form.fuelEst}]);
     }
     setModal(false);setEditId(null);setForm(ef);
   }
@@ -1660,8 +1666,6 @@ function Trips({trips,setTrips,units,drivers}){
           opts:[{v:"",l:"Seleccionar"},...units.map(u=>({v:u.id,l:`${u.plates} — ${u.model}`}))]}),
         h(Field,{label:"Operador",value:form.driver,onChange:v=>upd("driver",v),half:true,
           opts:[{v:"",l:"Seleccionar"},...drivers.map(d=>({v:d.id,l:d.name}))]}),
-        h(Field,{label:"Mes de Operación",value:form.month,onChange:v=>upd("month",v),half:true,
-          opts:ALL_MONTH_OPTS.map(x=>{const[y,mo]=x.split("-");return{v:x,l:`${MONTHS_ES[+mo-1].slice(0,3)} ${y}`};})}),
         h('div',{style:{gridColumn:"1/-1",marginBottom:14}},
           h('label',{style:{display:"block",fontSize:11.5,fontWeight:600,color:C.textMid,marginBottom:5,
             textTransform:"uppercase",letterSpacing:".07em"}},"Notas"),
@@ -1687,12 +1691,19 @@ function Fuel({fuel,setFuel,units,drivers}){
   const [fuelSubview,setFuelSubview]=useState("periodo");
   const [fuelPeriod,setFuelPeriod]=useState("month");
   const FUEL_MONTH_OPTS=(()=>{const r=[];for(let y=2024;y<=2026;y++)for(let m=1;m<=12;m++)r.push(`${y}-${String(m).padStart(2,"0")}`);return r;})();
-  const ef={unit:"",driver:"",date:"",liters:"",cost:"",location:"",km:"",month:new Date().toISOString().slice(0,7)};
+  const ef={unit:"",driver:"",date:"",liters:"",cost:"",location:"",km:""};
   const [form,setForm]=useState(ef);
-  const upd=(k,v)=>setForm(p=>({...p,[k]:v}));
+  function upd(k,v){
+    setForm(p=>{
+      const next={...p,[k]:v};
+      if(k==="date"&&v&&v.length>=7) next.month=v.slice(0,7);
+      return next;
+    });
+  }
   function save(){
     if(!form.unit||!form.liters)return;
-    setFuel([...fuel,{...form,id:`F${String(fuel.length+1).padStart(3,"0")}`,liters:+form.liters,cost:+form.cost,km:+form.km}]);
+    const month=form.month||(form.date?form.date.slice(0,7):"");
+    setFuel([...fuel,{...form,month,id:`F${String(fuel.length+1).padStart(3,"0")}`,liters:+form.liters,cost:+form.cost,km:+form.km}]);
     setModal(false);setForm(ef);
   }
   const totalL=fuel.reduce((a,b)=>a+b.liters,0);
@@ -2022,8 +2033,6 @@ function Fuel({fuel,setFuel,units,drivers}){
         h(Field,{label:"Operador",value:form.driver,onChange:v=>upd("driver",v),half:true,
           opts:[{v:"",l:"Seleccionar"},...drivers.map(d=>({v:d.id,l:d.name}))]}),
         h(Field,{label:"Fecha",value:form.date,onChange:v=>upd("date",v),type:"date",half:true}),
-        h(Field,{label:"Mes de operación",value:form.month,onChange:v=>upd("month",v),half:true,
-          opts:FUEL_MONTH_OPTS.map(x=>{const[y,mo]=x.split("-");return{v:x,l:`${MONTHS_ES[+mo-1].slice(0,3)} ${y}`};})}),
         h(Field,{label:"Litros cargados",value:form.liters,onChange:v=>upd("liters",v),type:"number",half:true}),
         h(Field,{label:"Costo total (MXN)",value:form.cost,onChange:v=>upd("cost",v),type:"number",half:true}),
         h(Field,{label:"Estación de servicio",value:form.location,onChange:v=>upd("location",v)})
