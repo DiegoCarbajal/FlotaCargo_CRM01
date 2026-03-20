@@ -3821,6 +3821,630 @@ function Users({company}){
 }
 
 // ── MAIN APP ─────────────────────────────────────────────────────────────────
+// ── TIRES DATA ───────────────────────────────────────────────────────────────
+const TIRES0=[
+  {id:"L001",codigo:"TRC-001-DD",marca:"Bridgestone",modelo:"M788",medida:"295/80R22.5",tipo:"direccional",
+   fechaCompra:"2024-06-01",costo:8500,proveedor:"Bridgestone MX",vidaUtilKm:100000,
+   unitId:"U001",eje:1,lado:"izquierdo",kmInstalacion:138000,kmActual:142350,
+   status:"activa",desgaste:"normal",
+   eventos:[{id:"E001",tipo:"Instalación",fecha:"2024-06-01",km:138000,responsable:"Taller Central",notas:"Instalación nueva"}]},
+  {id:"L002",codigo:"TRC-001-DI",marca:"Bridgestone",modelo:"M788",medida:"295/80R22.5",tipo:"direccional",
+   fechaCompra:"2024-06-01",costo:8500,proveedor:"Bridgestone MX",vidaUtilKm:100000,
+   unitId:"U001",eje:1,lado:"derecho",kmInstalacion:138000,kmActual:142350,
+   status:"activa",desgaste:"normal",
+   eventos:[{id:"E002",tipo:"Instalación",fecha:"2024-06-01",km:138000,responsable:"Taller Central",notas:""}]},
+  {id:"L003",codigo:"TRC-001-TD1",marca:"Michelin",modelo:"X Multi D",medida:"295/80R22.5",tipo:"traccion",
+   fechaCompra:"2023-11-15",costo:9200,proveedor:"Distribuidora Michelin",vidaUtilKm:120000,
+   unitId:"U001",eje:2,lado:"exterior-izq",kmInstalacion:118000,kmActual:142350,
+   status:"activa",desgaste:"irregular",
+   eventos:[
+     {id:"E003",tipo:"Instalación",fecha:"2023-11-15",km:118000,responsable:"Taller Central",notas:""},
+     {id:"E004",tipo:"Rotación",fecha:"2024-03-10",km:130000,responsable:"Taller Central",notas:"Rotación preventiva"},
+   ]},
+  {id:"L004",codigo:"TRC-001-TD2",marca:"Michelin",modelo:"X Multi D",medida:"295/80R22.5",tipo:"traccion",
+   fechaCompra:"2023-11-15",costo:9200,proveedor:"Distribuidora Michelin",vidaUtilKm:120000,
+   unitId:"U001",eje:2,lado:"exterior-der",kmInstalacion:118000,kmActual:142350,
+   status:"activa",desgaste:"normal",
+   eventos:[{id:"E005",tipo:"Instalación",fecha:"2023-11-15",km:118000,responsable:"Taller Central",notas:""}]},
+  {id:"L005",codigo:"TRC-002-DD",marca:"Continental",modelo:"HSL2",medida:"295/80R22.5",tipo:"direccional",
+   fechaCompra:"2024-01-20",costo:8800,proveedor:"Continental MX",vidaUtilKm:100000,
+   unitId:"U002",eje:1,lado:"izquierdo",kmInstalacion:205000,kmActual:218700,
+   status:"activa",desgaste:"normal",
+   eventos:[{id:"E006",tipo:"Instalación",fecha:"2024-01-20",km:205000,responsable:"Taller Norte",notas:""}]},
+  {id:"L006",codigo:"TRC-003-TD1",marca:"Bridgestone",modelo:"R187",medida:"295/80R22.5",tipo:"traccion",
+   fechaCompra:"2022-08-10",costo:8200,proveedor:"Bridgestone MX",vidaUtilKm:120000,
+   unitId:"U003",eje:2,lado:"exterior-izq",kmInstalacion:20000,kmActual:89200,
+   status:"activa",desgaste:"alto",
+   eventos:[
+     {id:"E007",tipo:"Instalación",fecha:"2022-08-10",km:20000,responsable:"Taller Central",notas:""},
+     {id:"E008",tipo:"Reparación",fecha:"2023-05-22",km:55000,responsable:"Taller Central",notas:"Pinchazo lateral reparado"},
+     {id:"E009",tipo:"Reencauche",fecha:"2023-12-01",km:75000,responsable:"Reencauchadora del Bajío",notas:"Reencauche caliente, banda nueva"},
+   ]},
+  {id:"L007",codigo:"BAJA-001",marca:"Hankook",modelo:"AH11",medida:"295/80R22.5",tipo:"remolque",
+   fechaCompra:"2021-03-15",costo:7200,proveedor:"Distribuidora Norte",vidaUtilKm:130000,
+   unitId:null,eje:null,lado:null,kmInstalacion:null,kmActual:null,
+   status:"baja",desgaste:"muy-alto",
+   eventos:[
+     {id:"E010",tipo:"Instalación",fecha:"2021-03-15",km:250000,responsable:"Taller Central",notas:""},
+     {id:"E011",tipo:"Cambio definitivo",fecha:"2024-10-01",km:315000,responsable:"Taller Central",notas:"Desgaste total, vida útil superada"},
+   ]},
+];
+
+// ── TIRES COMPONENT ──────────────────────────────────────────────────────────
+function Tires({tires,setTires,units,drivers}){
+  const {isMobile,isTablet}=useBP();
+  const [tab,setTab]=useState("dashboard");
+  const [modal,setModal]=useState(false);
+  const [detailId,setDetailId]=useState(null);
+  const [eventModal,setEventModal]=useState(null); // tire id
+  const [filterUnit,setFilterUnit]=useState("all");
+  const [filterStatus,setFilterStatus]=useState("all");
+
+  // Vida útil configurable por tipo
+  const VIDA_UTIL={direccional:100000,traccion:120000,remolque:130000};
+  const TIPOS=["direccional","traccion","remolque"];
+  const DESGASTES=["normal","irregular","alto","muy-alto"];
+  const EVENTOS_TIPO=["Instalación","Rotación","Reparación","Reencauche","Cambio definitivo","Inspección"];
+  const POSICIONES=["izquierdo","derecho","exterior-izq","exterior-der","interior-izq","interior-der","sencilla-izq","sencilla-der"];
+
+  const ef={codigo:"",marca:"",modelo:"",medida:"295/80R22.5",tipo:"traccion",
+    fechaCompra:"",costo:"",proveedor:"",vidaUtilKm:"",
+    unitId:"",eje:"1",lado:"exterior-izq",kmInstalacion:"",desgaste:"normal",status:"activa"};
+  const [form,setForm]=useState(ef);
+  const upd=(k,v)=>setForm(p=>({...p,[k]:v}));
+
+  const efEv={tipo:"Inspección",fecha:new Date().toISOString().slice(0,10),km:"",responsable:"",notas:""};
+  const [evForm,setEvForm]=useState(efEv);
+
+  function genId(){return"L"+String(tires.length+1).padStart(3,"0");}
+  function genCodigo(form){
+    const u=units.find(u=>u.id===form.unitId);
+    const plates=u?u.plates.replace(/[^A-Z0-9]/gi,"").slice(0,6).toUpperCase():"GEN";
+    return`${plates}-${form.tipo.slice(0,2).toUpperCase()}-${Date.now().toString().slice(-4)}`;
+  }
+
+  function saveTire(){
+    if(!form.marca||!form.modelo)return;
+    const vu=+form.vidaUtilKm||VIDA_UTIL[form.tipo]||100000;
+    const codigo=form.codigo||genCodigo(form);
+    const kmI=+form.kmInstalacion||0;
+    const unit=units.find(u=>u.id===form.unitId);
+    const kmA=unit?unit.km:kmI;
+    const nuevo={...form,id:genId(),codigo,vidaUtilKm:vu,costo:+form.costo||0,
+      eje:+form.eje||1,kmInstalacion:kmI,kmActual:kmA,
+      eventos:[{id:"EV"+Date.now(),tipo:"Instalación",fecha:form.fechaCompra||new Date().toISOString().slice(0,10),
+        km:kmI,responsable:"",notas:"Registro inicial"}]};
+    setTires(p=>[...p,nuevo]);
+    setModal(false);setForm(ef);
+  }
+
+  function saveEvent(){
+    if(!eventModal||!evForm.tipo)return;
+    const ev={id:"EV"+Date.now(),...evForm,km:+evForm.km||0};
+    setTires(p=>p.map(t=>t.id===eventModal?{...t,
+      kmActual:evForm.km?+evForm.km:t.kmActual,
+      status:evForm.tipo==="Cambio definitivo"?"baja":t.status,
+      unitId:evForm.tipo==="Cambio definitivo"?null:t.unitId,
+      eventos:[...(t.eventos||[]),ev]
+    }:t));
+    setEventModal(null);setEvForm(efEv);
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  function kmRec(t){return Math.max(0,(t.kmActual||0)-(t.kmInstalacion||0));}
+  function vidaUtil(t){const vu=t.vidaUtilKm||VIDA_UTIL[t.tipo]||100000;return Math.min(100,Math.round((kmRec(t)/vu)*100));}
+  function trafficLight(t){const p=vidaUtil(t);return p>=80?"danger":p>=60?"warning":"success";}
+  function kmRestantes(t){return Math.max(0,(t.vidaUtilKm||VIDA_UTIL[t.tipo]||100000)-kmRec(t));}
+  function costoPorKm(t){const k=kmRec(t);return k>0?((t.costo||0)/k).toFixed(2):"—";}
+  function recomendacion(t){
+    const p=vidaUtil(t);
+    if(t.status!=="activa")return null;
+    if(p>=90)return{msg:"⛔ Cambio urgente",color:C.danger};
+    if(p>=80)return{msg:"🔴 Programar cambio",color:C.danger};
+    if(p>=60)return{msg:"🟡 Revisar pronto",color:C.warning};
+    if(t.desgaste==="irregular")return{msg:"🔄 Rotar llanta",color:C.warning};
+    if(t.desgaste==="alto"&&p<70)return{msg:"♻️ Evaluar reencauche",color:C.info};
+    return{msg:"✅ En buen estado",color:C.success};
+  }
+
+  // ── Filtered tires ─────────────────────────────────────────────────────────
+  const shown=tires.filter(t=>{
+    if(filterUnit!=="all"&&t.unitId!==filterUnit)return false;
+    if(filterStatus!=="all"&&t.status!==filterStatus)return false;
+    return true;
+  });
+
+  const activas=tires.filter(t=>t.status==="activa");
+  const enRiesgo=activas.filter(t=>vidaUtil(t)>=80);
+  const totalCosto=tires.reduce((a,b)=>a+(b.costo||0),0);
+  const detailTire=tires.find(t=>t.id===detailId);
+
+  // Ranking marcas
+  const marcas={};
+  tires.filter(t=>kmRec(t)>0).forEach(t=>{
+    if(!marcas[t.marca])marcas[t.marca]={marca:t.marca,llantas:0,kmTotal:0,costoTotal:0};
+    marcas[t.marca].llantas++;
+    marcas[t.marca].kmTotal+=kmRec(t);
+    marcas[t.marca].costoTotal+=t.costo||0;
+  });
+  const rankingMarcas=Object.values(marcas).map(m=>({...m,
+    cxkm:m.kmTotal>0?(m.costoTotal/m.kmTotal).toFixed(2):"—",
+    kmProm:Math.round(m.kmTotal/m.llantas)
+  })).sort((a,b)=>+a.cxkm-+b.cxkm);
+
+  // Proximas a cambio
+  const proximasCambio=activas.filter(t=>vidaUtil(t)>=60).sort((a,b)=>vidaUtil(b)-vidaUtil(a));
+
+  const LIGHT={success:"#22C55E",warning:"#F59E0B",danger:"#EF4444"};
+
+  return h('div',{style:{animation:"fadeUp .25s ease",display:"flex",flexDirection:"column",gap:16}},
+
+    // ── TABS ────────────────────────────────────────────────────────────────
+    h('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}},
+      h('div',{className:"tabscroll",style:{display:"flex",borderBottom:`1px solid ${C.border}`}},
+        [{v:"dashboard",l:"📊 Dashboard"},{v:"llantas",l:"⭕ Llantas"},{v:"reportes",l:"📋 Reportes"},{v:"alertas",l:"🔔 Alertas"}].map(t=>
+          h('button',{key:t.v,onClick:()=>setTab(t.v),className:`tab${tab===t.v?" on":""}`},t.l)
+        )
+      ),
+      h('button',{onClick:()=>setModal(true),className:"btn-p",
+        style:{padding:"8px 14px",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:7}},
+        h(Ic,{n:"plus",s:13,c:"#fff"}),"Registrar Llanta"
+      )
+    ),
+
+    // ══ DASHBOARD TAB ═══════════════════════════════════════════════════════
+    tab==="dashboard"&&h('div',{style:{display:"flex",flexDirection:"column",gap:14}},
+
+      // KPI row
+      h('div',{style:{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":isTablet?"repeat(3,1fr)":"repeat(5,1fr)",gap:12}},
+        h(KpiCard,{label:"Llantas Activas",value:activas.length,sub:`de ${tires.length} totales`,icon:"⭕",accent:C.primary}),
+        h(KpiCard,{label:"En Riesgo",value:enRiesgo.length,sub:"≥80% vida útil",icon:"🔴",accent:C.danger}),
+        h(KpiCard,{label:"Gasto Total",value:fmtM(totalCosto),sub:"todas las llantas",icon:"💰",accent:C.warning}),
+        h(KpiCard,{label:"Costo Prom/km",value:()=>{const k=tires.filter(t=>kmRec(t)>0);return k.length?`$${(k.reduce((a,b)=>a+(b.costo||0)/kmRec(b),0)/k.length).toFixed(2)}`:"—";},sub:"flota completa",icon:"📊",accent:C.info}),
+        h(KpiCard,{label:"Marcas",value:[...new Set(tires.map(t=>t.marca))].length,sub:"diferentes",icon:"🏷️",accent:C.purple})
+      ),
+
+      // Estado visual de llantas por unidad
+      h('div',{style:{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"16px 20px"}},
+        h('div',{style:{fontSize:13,fontWeight:700,color:C.text,marginBottom:14}},"Estado de Llantas por Unidad"),
+        h('div',{style:{display:"flex",flexDirection:"column",gap:16}},
+          units.map(unit=>{
+            const uTires=tires.filter(t=>t.unitId===unit.id&&t.status==="activa");
+            if(!uTires.length)return null;
+            return h('div',{key:unit.id,style:{borderLeft:`3px solid ${C.primary}`,paddingLeft:14}},
+              h('div',{style:{display:"flex",alignItems:"center",gap:8,marginBottom:10}},
+                h('span',{style:{fontSize:13,fontWeight:700,color:C.text,fontFamily:"IBM Plex Mono,monospace"}},unit.plates),
+                h('span',{style:{fontSize:12,color:C.textLight}},unit.model),
+                h('span',{style:{marginLeft:"auto",fontSize:12,color:C.textMid}},uTires.length," llantas")
+              ),
+              h('div',{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+                uTires.map(t=>{
+                  const pct=vidaUtil(t);
+                  const col=LIGHT[trafficLight(t)];
+                  const rec=recomendacion(t);
+                  return h('div',{key:t.id,
+                    onClick:()=>{setDetailId(t.id);setTab("llantas");},
+                    style:{cursor:"pointer",background:C.surfaceAlt,border:`2px solid ${col}`,borderRadius:8,
+                      padding:"10px 12px",minWidth:120,transition:"all .15s"},
+                    title:rec?.msg||""},
+                    h('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}},
+                      h('span',{style:{fontSize:10,fontWeight:700,color:C.textMid,textTransform:"uppercase",letterSpacing:".05em"}},
+                        `E${t.eje} ${(t.lado||"").replace("exterior-","ext.").replace("interior-","int.")}`),
+                      h('div',{style:{width:10,height:10,borderRadius:"50%",background:col}})
+                    ),
+                    h('div',{style:{fontSize:11.5,fontWeight:700,color:C.text,marginBottom:2}},t.marca),
+                    h('div',{style:{fontSize:10.5,color:C.textLight,marginBottom:6}},t.medida),
+                    // Progress bar
+                    h('div',{style:{height:5,background:C.borderLt,borderRadius:3,overflow:"hidden"}},
+                      h('div',{style:{height:"100%",width:`${pct}%`,background:col,borderRadius:3,transition:"width .5s"}})
+                    ),
+                    h('div',{style:{fontSize:10,color:col,fontWeight:700,marginTop:3,textAlign:"right"}},`${pct}%`)
+                  );
+                })
+              )
+            );
+          })
+        )
+      ),
+
+      // Alertas y recomendaciones
+      h('div',{style:{display:"grid",gridTemplateColumns:isTablet?"1fr":"1fr 1fr",gap:14}},
+        h('div',{style:{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}},
+          h('div',{style:{padding:"12px 16px",borderBottom:`1px solid ${C.border}`}},
+            h('span',{style:{fontSize:13,fontWeight:700,color:C.text}},"🔔 Alertas Activas")),
+          h('div',{style:{padding:"10px 12px",maxHeight:220,overflowY:"auto"}},
+            activas.length===0&&h('div',{style:{textAlign:"center",padding:"20px 0",fontSize:13,color:C.textLight}},"Sin alertas"),
+            activas.filter(t=>vidaUtil(t)>=60||t.desgaste!=="normal").map(t=>{
+              const rec=recomendacion(t);
+              const pct=vidaUtil(t);
+              return rec&&h('div',{key:t.id,style:{display:"flex",gap:8,padding:"8px 9px",
+                background:pct>=80?C.dangerBg:C.warningBg,
+                border:`1px solid ${pct>=80?C.dangerBd:C.warningBd}`,
+                borderRadius:6,marginBottom:6,alignItems:"flex-start"}},
+                h('div',{style:{flex:1}},
+                  h('div',{style:{fontSize:12,fontWeight:700,color:rec.color}},rec.msg),
+                  h('div',{style:{fontSize:11.5,color:C.textMid}},t.codigo," · ",t.marca," ",t.modelo," · ",`${pct}% vida útil`)
+                )
+              );
+            })
+          )
+        ),
+        h('div',{style:{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}},
+          h('div',{style:{padding:"12px 16px",borderBottom:`1px solid ${C.border}`}},
+            h('span',{style:{fontSize:13,fontWeight:700,color:C.text}},"🏆 Ranking de Marcas")),
+          h('div',{style:{padding:"12px 16px"}},
+            rankingMarcas.length===0&&h('div',{style:{fontSize:13,color:C.textLight,textAlign:"center",padding:"12px 0"}},"Sin datos"),
+            rankingMarcas.map((m,i)=>h('div',{key:m.marca,style:{display:"flex",alignItems:"center",gap:10,marginBottom:10}},
+              h('div',{style:{width:22,height:22,borderRadius:5,background:i===0?C.successBg:C.surfaceAlt,
+                border:`1px solid ${i===0?C.successBd:C.border}`,display:"flex",alignItems:"center",
+                justifyContent:"center",fontSize:11,fontWeight:700,color:i===0?C.success:C.textLight,flexShrink:0}},`#${i+1}`),
+              h('div',{style:{flex:1}},
+                h('div',{style:{fontSize:12.5,fontWeight:700,color:C.text}},m.marca),
+                h('div',{style:{fontSize:11,color:C.textLight}},m.llantas," llantas · ",fmt(m.kmProm)," km prom")
+              ),
+              h('div',{style:{fontSize:13,fontWeight:700,color:C.primary,flexShrink:0}},"$",m.cxkm,"/km")
+            ))
+          )
+        )
+      )
+    ),
+
+    // ══ LLANTAS TAB ═════════════════════════════════════════════════════════
+    tab==="llantas"&&h('div',{style:{display:"flex",flexDirection:"column",gap:12}},
+
+      // Filtros
+      h('div',{style:{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}},
+        h('select',{value:filterUnit,onChange:e=>setFilterUnit(e.target.value),className:"inp",style:{width:"auto",appearance:"none"}},
+          h('option',{value:"all"},"Todas las unidades"),
+          units.map(u=>h('option',{key:u.id,value:u.id},u.plates)),
+          h('option',{value:""},"Sin asignar")
+        ),
+        h('select',{value:filterStatus,onChange:e=>setFilterStatus(e.target.value),className:"inp",style:{width:"auto",appearance:"none"}},
+          h('option',{value:"all"},"Todos los estados"),
+          h('option',{value:"activa"},"Activas"),
+          h('option',{value:"baja"},"Baja")
+        )
+      ),
+
+      // Tabla de llantas
+      h('div',{style:{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}},
+        h('div',{className:"tscroll"},
+          h('table',{style:{width:"100%",borderCollapse:"collapse",minWidth:860}},
+            h(THead,{cols:["Código","Marca/Modelo","Medida","Tipo","Unidad/Pos.","Km Rec.","Vida Útil","Estado","Recomendación","Acciones"]}),
+            h('tbody',null,
+              shown.length===0&&h('tr',null,h('td',{colSpan:10,style:{textAlign:"center",padding:"32px 0",fontSize:13,color:C.textLight}},"Sin llantas en esta selección")),
+              shown.map((t,i)=>{
+                const pct=vidaUtil(t);
+                const col=LIGHT[trafficLight(t)];
+                const rec=recomendacion(t);
+                const unit=units.find(u=>u.id===t.unitId);
+                return h('tr',{key:t.id,className:"row-hover",
+                  style:{borderBottom:i<shown.length-1?`1px solid ${C.borderLt}`:"none",
+                    background:detailId===t.id?"#EBF1FF":"transparent"}},
+                  h('td',{style:{padding:"10px 14px"}},
+                    h('div',{style:{fontSize:12,fontWeight:700,color:C.primary,fontFamily:"IBM Plex Mono,monospace"}},t.codigo),
+                    h('div',{style:{fontSize:10.5,color:C.textLight}},t.id)
+                  ),
+                  h('td',{style:{padding:"10px 14px"}},
+                    h('div',{style:{fontSize:13,fontWeight:600,color:C.text}},t.marca),
+                    h('div',{style:{fontSize:11.5,color:C.textMid}},t.modelo)
+                  ),
+                  h('td',{style:{padding:"10px 14px",fontSize:12.5,color:C.textMid,fontFamily:"monospace"}},t.medida),
+                  h('td',{style:{padding:"10px 14px",fontSize:12.5,color:C.textMid,textTransform:"capitalize"}},t.tipo),
+                  h('td',{style:{padding:"10px 14px"}},
+                    unit?h('div',null,
+                      h('div',{style:{fontSize:12.5,fontWeight:700,color:C.text,fontFamily:"IBM Plex Mono,monospace"}},unit.plates),
+                      h('div',{style:{fontSize:11,color:C.textLight}},`Eje ${t.eje} · ${(t.lado||"").replace("exterior-","ext.").replace("interior-","int.")}`)
+                    ):h('span',{style:{fontSize:12,color:C.textLight}},"Sin asignar")
+                  ),
+                  h('td',{style:{padding:"10px 14px",fontSize:12.5,fontFamily:"IBM Plex Mono,monospace",color:C.text}},
+                    fmt(kmRec(t))," km"
+                  ),
+                  h('td',{style:{padding:"10px 14px",minWidth:100}},
+                    t.status==="activa"?h('div',null,
+                      h('div',{style:{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}},
+                        h('span',{style:{color:C.textLight}},"Vida útil"),
+                        h('span',{style:{fontWeight:700,color:col}},`${pct}%`)
+                      ),
+                      h('div',{style:{height:6,background:C.borderLt,borderRadius:3,overflow:"hidden"}},
+                        h('div',{style:{height:"100%",width:`${pct}%`,background:col,borderRadius:3}})
+                      ),
+                      h('div',{style:{fontSize:10,color:C.textLight,marginTop:2}},fmt(kmRestantes(t))," km rest.")
+                    ):h('span',{style:{fontSize:12,color:C.textLight}},"—")
+                  ),
+                  h('td',{style:{padding:"10px 14px"}},
+                    h('span',{style:{display:"inline-flex",alignItems:"center",gap:4,fontSize:11.5,fontWeight:600,
+                      padding:"2px 8px",borderRadius:4,
+                      background:t.status==="activa"?C.successBg:C.surfaceAlt,
+                      color:t.status==="activa"?C.success:C.textLight,
+                      border:`1px solid ${t.status==="activa"?C.successBd:C.border}`}},
+                      h('span',{style:{width:5,height:5,borderRadius:"50%",background:t.status==="activa"?C.success:C.textLight}}),
+                      t.status==="activa"?"Activa":"Baja"
+                    )
+                  ),
+                  h('td',{style:{padding:"10px 14px"}},
+                    rec&&h('span',{style:{fontSize:11.5,fontWeight:600,color:rec.color}},rec.msg)
+                  ),
+                  h('td',{style:{padding:"10px 14px"}},
+                    h('div',{style:{display:"flex",gap:5,flexWrap:"wrap"}},
+                      h('button',{onClick:()=>setDetailId(detailId===t.id?null:t.id),
+                        style:{background:C.primaryLt,color:C.primary,border:`1px solid #93BFFC`,
+                          borderRadius:5,padding:"4px 8px",fontSize:11.5,fontWeight:600,cursor:"pointer"}},"📋 Historial"),
+                      t.status==="activa"&&h('button',{onClick:()=>{setEventModal(t.id);setEvForm(efEv);},
+                        style:{background:C.successBg,color:C.success,border:`1px solid ${C.successBd}`,
+                          borderRadius:5,padding:"4px 8px",fontSize:11.5,fontWeight:600,cursor:"pointer"}},"+ Evento")
+                    )
+                  )
+                );
+              })
+            )
+          )
+        )
+      ),
+
+      // Detalle / historial
+      detailTire&&h('div',{style:{background:C.surface,border:`1px solid ${C.primary}`,borderRadius:8,padding:"16px 20px"}},
+        h('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14,flexWrap:"wrap",gap:10}},
+          h('div',null,
+            h('div',{style:{fontSize:15,fontWeight:700,color:C.text}},detailTire.codigo),
+            h('div',{style:{fontSize:13,color:C.textMid}},detailTire.marca," ",detailTire.modelo," · ",detailTire.medida)
+          ),
+          h('div',{style:{display:"flex",gap:10,flexWrap:"wrap"}},
+            h('div',{style:{fontSize:12,color:C.textMid}},
+              h('span',{style:{fontWeight:600}},"Proveedor: "),detailTire.proveedor||"—"),
+            h('div',{style:{fontSize:12,color:C.textMid}},
+              h('span',{style:{fontWeight:600}},"Costo: "),fmtM(detailTire.costo||0)),
+            h('div',{style:{fontSize:12,color:C.textMid}},
+              h('span',{style:{fontWeight:600}},"$/km: "),"$",costoPorKm(detailTire)),
+            h('button',{onClick:()=>setDetailId(null),style:{background:C.surfaceAlt,border:`1px solid ${C.border}`,
+              borderRadius:5,padding:"4px 10px",fontSize:12,cursor:"pointer",color:C.textMid}},"✕ Cerrar")
+          )
+        ),
+        h('div',{style:{fontSize:13,fontWeight:600,color:C.textMid,marginBottom:8,textTransform:"uppercase",letterSpacing:".07em"}},"Historial de Eventos"),
+        h('div',{style:{display:"flex",flexDirection:"column",gap:6}},
+          (detailTire.eventos||[]).slice().reverse().map((ev,i)=>
+            h('div',{key:ev.id,style:{display:"flex",gap:10,padding:"9px 12px",
+              background:i===0?C.primaryLt:C.surfaceAlt,
+              border:`1px solid ${i===0?"#93BFFC":C.border}`,borderRadius:6}},
+              h('div',{style:{width:80,fontSize:11.5,fontWeight:700,color:C.textLight,flexShrink:0}},ev.fecha),
+              h('div',{style:{flex:1}},
+                h('div',{style:{fontSize:12.5,fontWeight:700,color:C.text}},ev.tipo),
+                ev.notas&&h('div',{style:{fontSize:11.5,color:C.textMid}},ev.notas)
+              ),
+              ev.km&&h('div',{style:{fontSize:11.5,fontFamily:"IBM Plex Mono,monospace",color:C.textMid,flexShrink:0}},fmt(ev.km)," km"),
+              ev.responsable&&h('div',{style:{fontSize:11.5,color:C.textLight,flexShrink:0}},ev.responsable)
+            )
+          )
+        )
+      )
+    ),
+
+    // ══ REPORTES TAB ════════════════════════════════════════════════════════
+    tab==="reportes"&&h('div',{style:{display:"flex",flexDirection:"column",gap:14}},
+
+      // Proximas a cambio
+      h('div',{style:{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}},
+        h('div',{style:{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between"}},
+          h('span',{style:{fontSize:13,fontWeight:700,color:C.text}},"🔴 Llantas Próximas a Cambio"),
+          h('span',{style:{fontSize:12.5,color:C.textMid}},proximasCambio.length," llantas")
+        ),
+        proximasCambio.length===0
+          ?h('div',{style:{textAlign:"center",padding:"32px 0",fontSize:13,color:C.textLight}},"Todas las llantas en buen estado ✅")
+          :h('div',{className:"tscroll"},
+            h('table',{style:{width:"100%",borderCollapse:"collapse",minWidth:600}},
+              h(THead,{cols:["Código","Marca/Modelo","Unidad","Km Recorridos","Vida Útil","Km Restantes","$/km","Recomendación"]}),
+              h('tbody',null,
+                proximasCambio.map((t,i)=>{
+                  const pct=vidaUtil(t);
+                  const col=LIGHT[trafficLight(t)];
+                  const rec=recomendacion(t);
+                  const unit=units.find(u=>u.id===t.unitId);
+                  return h('tr',{key:t.id,className:"row-hover",
+                    style:{borderBottom:i<proximasCambio.length-1?`1px solid ${C.borderLt}`:"none"}},
+                    h('td',{style:{padding:"9px 14px",fontSize:12,fontFamily:"IBM Plex Mono,monospace",color:C.primary,fontWeight:700}},t.codigo),
+                    h('td',{style:{padding:"9px 14px"}},
+                      h('div',{style:{fontSize:13,fontWeight:600}},t.marca," ",t.modelo),
+                      h('div',{style:{fontSize:11.5,color:C.textLight}},t.tipo)
+                    ),
+                    h('td',{style:{padding:"9px 14px",fontSize:12.5,fontFamily:"monospace",fontWeight:700}},unit?.plates||"—"),
+                    h('td',{style:{padding:"9px 14px",fontSize:12.5,fontFamily:"IBM Plex Mono,monospace"}},fmt(kmRec(t))," km"),
+                    h('td',{style:{padding:"9px 14px"}},
+                      h('div',{style:{display:"flex",alignItems:"center",gap:6}},
+                        h('div',{style:{flex:1,height:8,background:C.borderLt,borderRadius:4,overflow:"hidden",minWidth:60}},
+                          h('div',{style:{height:"100%",width:`${pct}%`,background:col,borderRadius:4}})
+                        ),
+                        h('span',{style:{fontSize:12,fontWeight:700,color:col,flexShrink:0}},`${pct}%`)
+                      )
+                    ),
+                    h('td',{style:{padding:"9px 14px",fontSize:12.5,fontFamily:"IBM Plex Mono,monospace",color:C.textMid}},fmt(kmRestantes(t))," km"),
+                    h('td',{style:{padding:"9px 14px",fontSize:12.5,fontWeight:700,color:C.primary}},"$",costoPorKm(t)),
+                    h('td',{style:{padding:"9px 14px"}},
+                      rec&&h('span',{style:{fontSize:11.5,fontWeight:600,color:rec.color}},rec.msg)
+                    )
+                  );
+                })
+              )
+            )
+          )
+      ),
+
+      // Ranking marcas
+      h('div',{style:{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}},
+        h('div',{style:{padding:"12px 16px",borderBottom:`1px solid ${C.border}`}},
+          h('span',{style:{fontSize:13,fontWeight:700,color:C.text}},"🏆 Rendimiento por Marca")),
+        rankingMarcas.length===0
+          ?h('div',{style:{textAlign:"center",padding:"32px 0",fontSize:13,color:C.textLight}},"Sin datos suficientes")
+          :h('div',{className:"tscroll"},
+            h('table',{style:{width:"100%",borderCollapse:"collapse",minWidth:500}},
+              h(THead,{cols:["#","Marca","Llantas","Km Promedio","Costo Total","$/km","Rendimiento"]}),
+              h('tbody',null,
+                rankingMarcas.map((m,i)=>{
+                  const maxKm=rankingMarcas.reduce((a,b)=>Math.max(a,b.kmProm),1);
+                  const pct=Math.round((m.kmProm/maxKm)*100);
+                  return h('tr',{key:m.marca,className:"row-hover",
+                    style:{borderBottom:i<rankingMarcas.length-1?`1px solid ${C.borderLt}`:"none",
+                      background:i===0?"#F0FDF4":"transparent"}},
+                    h('td',{style:{padding:"10px 14px",fontSize:13,fontWeight:700,color:i===0?C.success:C.textLight}},`#${i+1}`),
+                    h('td',{style:{padding:"10px 14px",fontSize:13,fontWeight:700,color:C.text}},m.marca,i===0&&h('span',{style:{marginLeft:6,fontSize:11,background:C.successBg,color:C.success,border:`1px solid ${C.successBd}`,borderRadius:3,padding:"1px 5px",fontWeight:600}},"mejor")),
+                    h('td',{style:{padding:"10px 14px",fontSize:13,color:C.info,textAlign:"center",fontWeight:600}},m.llantas),
+                    h('td',{style:{padding:"10px 14px",fontSize:12.5,fontFamily:"IBM Plex Mono,monospace",color:C.text}},fmt(m.kmProm)," km"),
+                    h('td',{style:{padding:"10px 14px",fontSize:13,fontWeight:700,color:C.warning}},fmtM(m.costoTotal)),
+                    h('td',{style:{padding:"10px 14px",fontSize:13,fontWeight:800,color:C.primary}},"$",m.cxkm,"/km"),
+                    h('td',{style:{padding:"10px 14px"}},
+                      h('div',{style:{display:"flex",alignItems:"center",gap:8}},
+                        h('div',{style:{flex:1,height:6,background:C.borderLt,borderRadius:3,overflow:"hidden"}},
+                          h('div',{style:{height:"100%",width:`${pct}%`,background:C.success,borderRadius:3}})
+                        ),
+                        h('span',{style:{fontSize:11.5,fontWeight:700,color:C.success,flexShrink:0}},`${pct}%`)
+                      )
+                    )
+                  );
+                })
+              )
+            )
+          )
+      ),
+
+      // Historial completo
+      h('div',{style:{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}},
+        h('div',{style:{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between"}},
+          h('span',{style:{fontSize:13,fontWeight:700,color:C.text}},"📜 Historial Completo por Unidad"),
+          h('span',{style:{fontSize:12.5,color:C.textMid}},tires.length," llantas registradas")
+        ),
+        h('div',{className:"tscroll"},
+          h('table',{style:{width:"100%",borderCollapse:"collapse",minWidth:720}},
+            h(THead,{cols:["Código","Marca","Tipo","Unidad","F. Compra","Costo","Km Rec.","Vida Útil","Estado","$/km"]}),
+            h('tbody',null,
+              tires.map((t,i)=>{
+                const pct=vidaUtil(t);
+                const col=LIGHT[trafficLight(t)];
+                const unit=units.find(u=>u.id===t.unitId);
+                return h('tr',{key:t.id,className:"row-hover",
+                  style:{borderBottom:i<tires.length-1?`1px solid ${C.borderLt}`:"none",
+                    opacity:t.status==="baja"?.6:1}},
+                  h('td',{style:{padding:"9px 14px",fontSize:12,fontFamily:"IBM Plex Mono,monospace",color:C.primary,fontWeight:700}},t.codigo),
+                  h('td',{style:{padding:"9px 14px",fontSize:12.5,fontWeight:600,color:C.text}},t.marca," ",h('span',{style:{fontWeight:400,color:C.textLight}},t.modelo)),
+                  h('td',{style:{padding:"9px 14px",fontSize:12,color:C.textMid,textTransform:"capitalize"}},t.tipo),
+                  h('td',{style:{padding:"9px 14px",fontSize:12.5,fontFamily:"monospace",fontWeight:700}},unit?.plates||"—"),
+                  h('td',{style:{padding:"9px 14px",fontSize:12,color:C.textLight}},t.fechaCompra||"—"),
+                  h('td',{style:{padding:"9px 14px",fontSize:13,fontWeight:700,color:C.warning}},fmtM(t.costo||0)),
+                  h('td',{style:{padding:"9px 14px",fontSize:12.5,fontFamily:"IBM Plex Mono,monospace"}},fmt(kmRec(t))," km"),
+                  h('td',{style:{padding:"9px 14px"}},
+                    t.status==="activa"?h('div',{style:{display:"flex",alignItems:"center",gap:6}},
+                      h('div',{style:{width:40,height:5,background:C.borderLt,borderRadius:3,overflow:"hidden"}},
+                        h('div',{style:{height:"100%",width:`${pct}%`,background:col,borderRadius:3}})
+                      ),
+                      h('span',{style:{fontSize:11.5,fontWeight:700,color:col}},`${pct}%`)
+                    ):h('span',{style:{fontSize:12,color:C.textLight}},"Baja")
+                  ),
+                  h('td',{style:{padding:"9px 14px"}},
+                    h('span',{style:{fontSize:11.5,fontWeight:600,
+                      color:t.status==="activa"?C.success:C.textLight}},t.status==="activa"?"Activa":"Baja")
+                  ),
+                  h('td',{style:{padding:"9px 14px",fontSize:12.5,fontWeight:700,color:C.primary}},"$",costoPorKm(t))
+                );
+              })
+            )
+          )
+        )
+      )
+    ),
+
+    // ══ ALERTAS TAB ══════════════════════════════════════════════════════════
+    tab==="alertas"&&h('div',{style:{display:"flex",flexDirection:"column",gap:12}},
+      activas.length===0&&h('div',{style:{textAlign:"center",padding:"40px 0",fontSize:14,color:C.textLight}},"Sin llantas activas registradas"),
+      activas.sort((a,b)=>vidaUtil(b)-vidaUtil(a)).map(t=>{
+        const pct=vidaUtil(t);
+        const col=LIGHT[trafficLight(t)];
+        const rec=recomendacion(t);
+        const unit=units.find(u=>u.id===t.unitId);
+        if(!rec||rec.msg.includes("buen estado"))return null;
+        return h('div',{key:t.id,style:{background:C.surface,border:`1px solid ${col}40`,borderLeft:`4px solid ${col}`,borderRadius:8,padding:"14px 18px"}},
+          h('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10}},
+            h('div',null,
+              h('div',{style:{fontSize:14,fontWeight:700,color:rec.color,marginBottom:4}},rec.msg),
+              h('div',{style:{display:"flex",gap:12,flexWrap:"wrap"}},
+                h('span',{style:{fontSize:12.5,fontWeight:700,fontFamily:"IBM Plex Mono,monospace",color:C.text}},t.codigo),
+                h('span',{style:{fontSize:12.5,color:C.textMid}},t.marca," ",t.modelo," · ",t.medida),
+                unit&&h('span',{style:{fontSize:12.5,color:C.textMid}},"Unidad: ",h('strong',null,unit.plates)),
+                h('span',{style:{fontSize:12.5,color:C.textMid}},`Eje ${t.eje} · `,t.lado)
+              )
+            ),
+            h('div',{style:{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center"}},
+              h('div',{style:{textAlign:"center"}},
+                h('div',{style:{fontSize:20,fontWeight:800,color:col}},`${pct}%`),
+                h('div',{style:{fontSize:10.5,color:C.textLight}},"vida útil")
+              ),
+              h('div',{style:{textAlign:"center"}},
+                h('div',{style:{fontSize:15,fontWeight:700,color:C.text}},fmt(kmRestantes(t))," km"),
+                h('div',{style:{fontSize:10.5,color:C.textLight}},"restantes")
+              ),
+              h('button',{onClick:()=>{setEventModal(t.id);setEvForm(efEv);},
+                style:{padding:"8px 14px",fontSize:12.5,fontWeight:600,borderRadius:7,cursor:"pointer",
+                  border:`1px solid ${col}`,background:col+"15",color:col}},
+                "+ Registrar evento")
+            )
+          )
+        );
+      })
+    ),
+
+    // ══ MODAL NUEVA LLANTA ═══════════════════════════════════════════════════
+    modal&&h(Modal,{title:"Registrar Nueva Llanta",width:600,onClose:()=>{setModal(false);setForm(ef);}},
+      h('div',{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}},
+        h(Field,{label:"Código / ID",value:form.codigo,onChange:v=>upd("codigo",v),half:true,placeholder:"Auto-generado si se deja vacío"}),
+        h(Field,{label:"Tipo",value:form.tipo,onChange:v=>upd("tipo",v),half:true,
+          opts:TIPOS.map(x=>({v:x,l:x.charAt(0).toUpperCase()+x.slice(1)}))}),
+        h(Field,{label:"Marca",value:form.marca,onChange:v=>upd("marca",v),half:true,required:true}),
+        h(Field,{label:"Modelo",value:form.modelo,onChange:v=>upd("modelo",v),half:true,required:true}),
+        h(Field,{label:"Medida",value:form.medida,onChange:v=>upd("medida",v),half:true,placeholder:"295/80R22.5"}),
+        h(Field,{label:"Proveedor",value:form.proveedor,onChange:v=>upd("proveedor",v),half:true}),
+        h(Field,{label:"Fecha de Compra",value:form.fechaCompra,onChange:v=>upd("fechaCompra",v),type:"date",half:true}),
+        h(Field,{label:"Costo (MXN)",value:form.costo,onChange:v=>upd("costo",v),type:"number",half:true}),
+        h(Field,{label:"Vida útil (km)",value:form.vidaUtilKm,onChange:v=>upd("vidaUtilKm",v),type:"number",half:true,
+          placeholder:`Default: ${VIDA_UTIL[form.tipo]?.toLocaleString("es-MX")}`}),
+        h(Field,{label:"Desgaste inicial",value:form.desgaste,onChange:v=>upd("desgaste",v),half:true,
+          opts:DESGASTES.map(x=>({v:x,l:x}))}),
+        h(Field,{label:"Asignar a Unidad",value:form.unitId,onChange:v=>upd("unitId",v),half:true,
+          opts:[{v:"",l:"Sin asignar"},...units.map(u=>({v:u.id,l:`${u.plates} — ${u.model}`}))]}),
+        h(Field,{label:"Eje",value:form.eje,onChange:v=>upd("eje",v),half:true,
+          opts:[1,2,3,4].map(n=>({v:String(n),l:`Eje ${n}`}))}),
+        h(Field,{label:"Posición",value:form.lado,onChange:v=>upd("lado",v),
+          opts:POSICIONES.map(x=>({v:x,l:x.replace("exterior-","Ext. ").replace("interior-","Int. ").replace(/^\w/,c=>c.toUpperCase())}))}),
+        h(Field,{label:"Km al instalar",value:form.kmInstalacion,onChange:v=>upd("kmInstalacion",v),type:"number",half:true})
+      ),
+      h('div',{style:{background:C.infoBg,border:`1px solid ${C.infoBd}`,borderRadius:7,padding:"10px 14px",marginTop:8,fontSize:12,color:C.info}},
+        "💡 La vida útil por defecto es: Direccional 100,000 km · Tracción 120,000 km · Remolque 130,000 km"
+      ),
+      h('div',{style:{display:"flex",gap:8,justifyContent:"flex-end",marginTop:12}},
+        h('button',{onClick:()=>{setModal(false);setForm(ef);},className:"btn-s",style:{padding:"9px 18px",fontSize:13,fontWeight:600}},"Cancelar"),
+        h('button',{onClick:saveTire,className:"btn-p",style:{padding:"9px 20px",fontSize:13,fontWeight:600}},"✓ Registrar Llanta")
+      )
+    ),
+
+    // ══ MODAL EVENTO ══════════════════════════════════════════════════════════
+    eventModal&&h(Modal,{title:"Registrar Evento de Llanta",
+      sub:`Llanta: ${tires.find(t=>t.id===eventModal)?.codigo||eventModal}`,
+      onClose:()=>setEventModal(null)},
+      h('div',{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}},
+        h(Field,{label:"Tipo de Evento",value:evForm.tipo,onChange:v=>setEvForm(p=>({...p,tipo:v})),
+          opts:EVENTOS_TIPO.map(x=>({v:x,l:x}))}),
+        h(Field,{label:"Fecha",value:evForm.fecha,onChange:v=>setEvForm(p=>({...p,fecha:v})),type:"date",half:true}),
+        h(Field,{label:"Km al momento",value:evForm.km,onChange:v=>setEvForm(p=>({...p,km:v})),type:"number",half:true}),
+        h(Field,{label:"Responsable",value:evForm.responsable,onChange:v=>setEvForm(p=>({...p,responsable:v}))}),
+        h(Field,{label:"Notas",value:evForm.notas,onChange:v=>setEvForm(p=>({...p,notas:v}))})
+      ),
+      evForm.tipo==="Cambio definitivo"&&h('div',{style:{background:C.dangerBg,border:`1px solid ${C.dangerBd}`,borderRadius:7,padding:"10px 14px",marginTop:4,fontSize:12.5,color:C.danger,fontWeight:600}},
+        "⚠️ Al registrar un Cambio definitivo, la llanta pasará a estado Baja y se desvinculará de la unidad."
+      ),
+      h('div',{style:{display:"flex",gap:8,justifyContent:"flex-end",marginTop:12}},
+        h('button',{onClick:()=>setEventModal(null),className:"btn-s",style:{padding:"9px 18px",fontSize:13,fontWeight:600}},"Cancelar"),
+        h('button',{onClick:saveEvent,className:"btn-p",style:{padding:"9px 20px",fontSize:13,fontWeight:600}},"✓ Guardar Evento")
+      )
+    )
+  );
+}
+
 function App(){
   const {isMobile,isTablet}=useBP();
   const [session,setSession]=useState(null);
@@ -3831,6 +4455,7 @@ function App(){
   const [trips,setTrips]=useState(TRIPS0);
   const [fuel,setFuel]=useState(FUEL0);
   const [maint,setMaint]=useState(MAINT0);
+  const [tires,setTires]=useState(TIRES0);
 
   if(!session)return h(Login,{onLogin:s=>{setSession(s);setActive("dashboard");}});
 
@@ -3842,6 +4467,7 @@ function App(){
     {id:"trips",l:"Viajes",e:"🗺️",g:"Operaciones"},
     {id:"fuel",l:"Combustible",e:"⛽",g:"Administración"},
     {id:"maint",l:"Mantenimiento",e:"🔧",g:"Administración"},
+    {id:"tires",l:"Control de Llantas",e:"⭕",g:"Administración"},
     {id:"rentabilidad",l:"Rentabilidad",e:"💹",g:"Administración"},
     {id:"cierre",l:"Cierre de Mes",e:"📅",g:"Administración"},
     {id:"gps",l:"GPS & Movimiento",e:"📡",g:"Sensores"},
@@ -3851,11 +4477,13 @@ function App(){
     {id:"users",l:"Usuarios",e:"👥",g:"Sistema"},
   ];
   const GROUPS=[...new Set(NAV.map(n=>n.g))];
-  const TITLES={dashboard:"Dashboard Operativo",units:"Gestión de Flota",drivers:"Operadores",trips:"Control de Viajes",fuel:"Control de Combustible",maint:"Mantenimiento",cierre:"Cierre de Mes",map:"Mapa de Rutas",users:"Usuarios y Seguridad"};
+  const TITLES={dashboard:"Dashboard Operativo",units:"Gestión de Flota",drivers:"Operadores",trips:"Control de Viajes",fuel:"Control de Combustible",maint:"Mantenimiento",tires:"Control de Llantas",cierre:"Cierre de Mes",map:"Mapa de Rutas",users:"Usuarios y Seguridad"};
+  const tireAlerts=tires.filter(t=>t.status==="activa"&&(t.kmRecorridos/(t.vidaUtilKm||100000))>=0.8);
   const alerts=[
     ...units.filter(u=>days(u.docExpiry)<30),
     ...units.filter(u=>u.nextMaintKm-u.km<10000),
     ...drivers.filter(d=>days(d.licExpiry)<60),
+    ...tireAlerts,
   ];
 
   function nav(id){setActive(id);if(isTablet)setSideOpen(false);}
@@ -3942,6 +4570,7 @@ function App(){
           active==="trips"&&h(Trips,{trips,setTrips,units,drivers}),
           active==="fuel"&&h(Fuel,{fuel,setFuel,units,drivers}),
           active==="maint"&&h(Maint,{maint,setMaint,units}),
+          active==="tires"&&h(Tires,{tires,setTires,units,drivers}),
           active==="rentabilidad"&&h(Rentabilidad,{units,trips,fuel,maint,drivers}),
           active==="cierre"&&h(Cierre,{trips,fuel,units,drivers,setTrips,setFuel,user}),
           active==="gps"&&h(ModGPS,{units,drivers,trips}),
