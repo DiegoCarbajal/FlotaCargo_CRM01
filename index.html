@@ -364,35 +364,42 @@ function Login({onLogin}){
       boxShadow:isTablet?"none":"-4px 0 40px rgba(0,0,0,.08)",
       position:"relative"
     }},
-      // Mobile image strip — compact truck photo above form
+      // Mobile image strip — responsive height, fills well without distortion
       isTablet&&h('div',{style:{
-        position:"relative",height:180,overflow:"hidden",
-        marginBottom:0,marginLeft:isMobile?"-20px":"-48px",
+        position:"relative",
+        height:isMobile?"35vw":"220px",
+        minHeight:isMobile?120:160,
+        maxHeight:isMobile?200:260,
+        overflow:"hidden",
+        marginBottom:0,
+        marginLeft:isMobile?"-20px":"-48px",
         marginRight:isMobile?"-20px":"-48px",
         marginTop:isMobile?"-32px":"-40px",
-        borderRadius:"0 0 0 0",
         flexShrink:0
       }},
         h('div',{style:{
           position:"absolute",inset:0,
           backgroundImage:`url(${BG_URI})`,
           backgroundSize:"cover",
-          backgroundPosition:"center 15%",
-          filter:"brightness(0.7) saturate(0.85)"
+          backgroundPosition:"center 65%",
+          filter:"brightness(0.65) saturate(0.85)"
         }}),
         h('div',{style:{
           position:"absolute",inset:0,
-          background:"linear-gradient(to bottom,rgba(4,12,28,.3) 0%,rgba(4,12,28,.7) 100%)"
+          background:"linear-gradient(to bottom,rgba(4,12,28,.1) 0%,rgba(4,12,28,.65) 100%)"
         }}),
         h('div',{style:{
-          position:"absolute",bottom:16,left:isMobile?20:48,
+          position:"absolute",bottom:14,left:isMobile?20:48,
           display:"flex",alignItems:"center",gap:10
         }},
           h('div',{style:{
             width:34,height:34,borderRadius:8,background:"#1447E6",
             display:"flex",alignItems:"center",justifyContent:"center"
           }},h(Ic,{n:"truck",s:16,c:"#fff"})),
-          h('div',{style:{fontSize:17,fontWeight:800,color:"#fff"}},"FleetOS")
+          h('div',null,
+            h('div',{style:{fontSize:17,fontWeight:800,color:"#fff",lineHeight:1.1}},"FleetOS"),
+            h('div',{style:{fontSize:10,color:"rgba(255,255,255,.6)",letterSpacing:".1em",textTransform:"uppercase"}},"Fleet Management OS")
+          )
         )
       ),
       // Spacer after strip
