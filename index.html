@@ -1900,8 +1900,8 @@ function Fuel({fuel,setFuel,units,drivers}){
     fuelView==="charts"&&fuelSubview==="periodo"&&h('div',{style:{display:"flex",flexDirection:"column",gap:14}},
       h('div',{style:{display:"grid",gridTemplateColumns:isTablet?"1fr":"1fr 1fr",gap:14}},
         h(ChartPanel,{title:"Gasto en Combustible",sub:`Por ${fuelPeriod==="year"?"año":"mes"} (MXN)`,
-          legend:[{label:"Gasto MXN",color:C.warning}]},
-          h(BarChart,{data:fuelCostData,color:C.warning,height:180,
+          legend:[{label:"Gasto MXN",color:C.danger}]},
+          h(BarChart,{data:fuelCostData,color:C.danger,height:180,
             formatY:v=>v>=1000?`$${(v/1000).toFixed(0)}k`:`$${v}`})
         ),
         h(ChartPanel,{title:"Litros Cargados",sub:`Por ${fuelPeriod==="year"?"año":"mes"}`,
@@ -1911,8 +1911,8 @@ function Fuel({fuel,setFuel,units,drivers}){
         )
       ),
       h(ChartPanel,{title:"Tendencia de Gasto",sub:"Evolución mensual acumulada",
-        legend:[{label:"Gasto MXN",color:C.warning}]},
-        h(LineChart,{data:costByMonth,color:C.warning,height:150,
+        legend:[{label:"Gasto MXN",color:C.purple}]},
+        h(LineChart,{data:costByMonth,color:C.purple,height:150,
           formatY:v=>v>=1000?`$${(v/1000).toFixed(0)}k`:`$${v}`})
       )
     ),
@@ -1952,13 +1952,13 @@ function Fuel({fuel,setFuel,units,drivers}){
       // Gráficas
       h('div',{style:{display:"grid",gridTemplateColumns:isTablet?"1fr":"1fr 1fr",gap:14}},
         h(ChartPanel,{title:"Gasto por Tráiler",sub:"Total MXN",
-          legend:[{label:"Gasto MXN",color:C.warning}]},
-          h(BarChart,{data:trailerCostBar,color:C.warning,height:200,
+          legend:[{label:"Gasto MXN",color:C.danger}]},
+          h(BarChart,{data:trailerCostBar,color:C.danger,height:200,
             formatY:v=>v>=1000?`$${(v/1000).toFixed(0)}k`:`$${v}`})
         ),
         h(ChartPanel,{title:"Litros por Tráiler",sub:"Total cargado",
-          legend:[{label:"Litros",color:C.primary}]},
-          h(BarChart,{data:trailerLiterBar,color:C.primary,height:200,
+          legend:[{label:"Litros",color:C.info}]},
+          h(BarChart,{data:trailerLiterBar,color:C.info,height:200,
             formatY:v=>v>=1000?`${(v/1000).toFixed(0)}kL`:`${v}L`})
         )
       ),
@@ -2005,7 +2005,7 @@ function Fuel({fuel,setFuel,units,drivers}){
                   h('td',{style:{padding:"10px 14px",fontSize:13,fontWeight:600,color:C.info,textAlign:"center"}},t.count),
                   h('td',{style:{padding:"10px 14px",fontSize:12.5,fontFamily:"IBM Plex Mono,monospace",color:C.text}},
                     t.liters>0?`${fmt(t.liters)} L`:"—"),
-                  h('td',{style:{padding:"10px 14px",fontSize:13,fontWeight:800,color:C.warning}},
+                  h('td',{style:{padding:"10px 14px",fontSize:13,fontWeight:800,color:C.danger}},
                     t.cost>0?fmtM(t.cost):"—"),
                   h('td',{style:{padding:"10px 14px",fontSize:12.5,color:C.textMid}},
                     t.ppl>0?`$${t.ppl.toFixed(2)}`:"—"),
@@ -2499,7 +2499,7 @@ function MapRoutes({trips,units,drivers}){
     h('div',{style:{background:"#fff",border:`1px solid ${C.border}`,borderRadius:8,padding:"16px 20px"}},
       h('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}},
         h('div',null,
-          h('div',{style:{fontSize:13,fontWeight:700,color:C.text}},"📍 Planificador de Ruta"),
+          h('div',{style:{fontSize:13,fontWeight:700,color:C.text}},"🧮 Cotizador de Ruta"),
           h('div',{style:{fontSize:11.5,color:C.textLight,marginTop:2}},
             realRoute?"✅ Ruta real por carretera calculada":"Estimado por línea recta · Calcula ruta real por carretera")
         ),
@@ -2573,8 +2573,8 @@ function MapRoutes({trips,units,drivers}){
 
       h('div',{style:{background:"#fff",border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}},
         h('div',{style:{padding:"11px 14px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}},
-          h('span',{style:{fontSize:13,fontWeight:700,color:C.text}},"Viajes Activos"),
-          h('span',{style:{background:C.surfaceAlt,border:`1px solid ${C.border}`,borderRadius:10,padding:"1px 8px",fontSize:12,color:C.textMid}},activeTrips.length)
+          h('span',{style:{fontSize:13,fontWeight:700,color:C.text}},"🚛 Viajes Activos"),
+          h('span',{style:{background:C.primaryLt,border:`1px solid #93BFFC`,borderRadius:10,padding:"1px 8px",fontSize:12,color:C.primary,fontWeight:600}},activeTrips.length)
         ),
         h('div',{style:{padding:"8px 10px",maxHeight:isTablet?260:400,overflowY:"auto"}},
           activeTrips.length===0&&h('div',{style:{textAlign:"center",padding:"24px 0",color:C.textLight,fontSize:13}},"Sin viajes activos"),
@@ -2582,16 +2582,17 @@ function MapRoutes({trips,units,drivers}){
             const drv=drivers.find(d=>d.id===trip.driver);
             const unit=units.find(u=>u.id===trip.unit);
             const isSel=selTrip?.id===trip.id;
-            const col=STATUS_COLORS[trip.status]||C.textLight;
             return h('div',{key:trip.id,
               style:{padding:"10px 11px",background:isSel?"#EBF1FF":C.surfaceAlt,border:`1px solid ${isSel?"#93BFFC":C.border}`,borderRadius:7,marginBottom:6,cursor:"pointer",transition:"all .15s"},
               onClick:()=>{setSelTrip(isSel?null:trip);if(!isSel){setFrom(trip.origin);setTo(trip.destination);}}},
-              h('div',{style:{display:"flex",justifyContent:"space-between",marginBottom:3}},
-                h('span',{style:{fontSize:11.5,fontWeight:700,color:C.textMid,fontFamily:"monospace"}},trip.id),
+              h('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}},
+                h('div',{style:{fontSize:13,fontWeight:700,color:C.text}},trip.origin," → ",trip.destination),
                 h(Badge,{status:trip.status})
               ),
-              h('div',{style:{fontSize:13,fontWeight:600,color:C.text,marginBottom:2}},trip.origin," → ",trip.destination),
-              h('div',{style:{fontSize:11.5,color:C.textLight}},unit?.plates||"","  ",drv?drv.name.split(" ").slice(0,2).join(" "):"—"),
+              h('div',{style:{fontSize:11.5,color:C.textLight,display:"flex",gap:8}},
+                unit&&h('span',{style:{fontFamily:"monospace",fontWeight:600,color:C.textMid}},unit.plates),
+                drv&&h('span',null,drv.name.split(" ").slice(0,2).join(" "))
+              ),
               isSel&&h('div',{style:{marginTop:8,paddingTop:8,borderTop:`1px solid ${C.border}`}},
                 h('div',{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"3px 8px",marginBottom:8}},
                   [["Carga",trip.cargoType],["Peso",`${(trip.weight||0).toLocaleString("es-MX")} kg`],["Km",`${(trip.km||0).toLocaleString("es-MX")} km`],["Comb.",`${(trip.fuelEst||0).toLocaleString("es-MX")} L`]].map(([l,v])=>
@@ -3436,16 +3437,15 @@ function Cierre({trips,fuel,units,drivers,setTrips,setFuel,user}){
   const isAdmin=(user?.role==="Administrador");
   const MONTHS=useMemo(()=>{
     const ms=new Set();
-    // Include all months 2024-2026 so admin can always pick any month
-    for(let y=2024;y<=2026;y++)for(let m=1;m<=12;m++)ms.add(`${y}-${String(m).padStart(2,"0")}`);
-    trips.forEach(t=>t.departDate&&ms.add(t.departDate.slice(0,7)));
-    fuel.forEach(f=>f.month&&ms.add(f.month));
+    // Only include months that actually have trip or fuel data
+    trips.forEach(t=>{
+      const m=t.month||t.departDate?.slice(0,7);
+      if(m)ms.add(m);
+    });
+    fuel.forEach(f=>{ if(f.month)ms.add(f.month); });
     return [...ms].sort().reverse();
   },[trips,fuel]);
-  const [sel,setSel]=useState(()=>{
-    const cur=new Date().toISOString().slice(0,7);
-    return MONTHS.includes(cur)?cur:(MONTHS[0]||"2025-01");
-  });
+  const [sel,setSel]=useState(()=>MONTHS[0]||new Date().toISOString().slice(0,7));
   const [tab,setTab]=useState("resumen");
   const [closed,setClosed]=useState([]);
   const [addModal,setAddModal]=useState(null); // "viaje" | "combustible"
