@@ -3870,309 +3870,179 @@ const TIRES0=[
    ]},
 ];
 
-// ── TRAILER DIAGRAM ──────────────────────────────────────────────────────────
-function TrailerDiagram({unit,uTires,vidaUtil,trafficLight,recomendacion,kmRec,kmRestantes,costoPorKm,LIGHT,onTireClick}){
-  const [hovered,setHovered]=useState(null); // tire id
-  const [tipPos,setTipPos]=useState({x:0,y:0});
-  const containerRef=useRef(null);
-
-  const hoveredTire=hovered?uTires.find(t=>t.id===hovered):null;
-
-  // ── Tire position map ─────────────────────────────────────────────────────
-  // SVG viewBox: 0 0 880 200
-  // Cab: x 20-140 | Trailer: x 148-720 | Rear bumper: x 720-740
-  // Axle X centers:
-  const AX={1:110, 2:300, 3:420, 4:580, 5:680};
-  // Y positions (top=left side, bottom=right side of truck)
-  const AY={
-    "izquierdo":42,      "derecho":158,
-    "sencilla-izq":42,   "sencilla-der":158,
-    "exterior-izq":28,   "interior-izq":52,
-    "exterior-der":170,  "interior-der":148,
+// ── TIRE GRID VIEW (Opción C) ────────────────────────────────────────────────
+function TireGridView({unit,uTires,vidaUtil,trafficLight,recomendacion,kmRec,kmRestantes,LIGHT,onTireClick}){
+  const EJES=[1,2,3,4,5];
+  const LEFT_SIDES=["izquierdo","sencilla-izq","exterior-izq","interior-izq"];
+  const RIGHT_SIDES=["derecho","sencilla-der","exterior-der","interior-der"];
+  const LADO_LABEL={
+    "izquierdo":"Sencilla","derecho":"Sencilla",
+    "sencilla-izq":"Sencilla","sencilla-der":"Sencilla",
+    "exterior-izq":"Exterior","interior-izq":"Interior",
+    "exterior-der":"Interior","interior-der":"Exterior",
   };
+  const EJE_TYPE={1:"Dirección",2:"Tracción",3:"Tracción",4:"Remolque",5:"Remolque"};
 
-  function pos(t){return{x:AX[t.eje]||AX[1], y:AY[t.lado]||100};}
-
-  // All possible slots to show empties
-  const ALL_SLOTS=[
-    {eje:1,lado:"izquierdo"},{eje:1,lado:"derecho"},
-    {eje:2,lado:"exterior-izq"},{eje:2,lado:"interior-izq"},{eje:2,lado:"exterior-der"},{eje:2,lado:"interior-der"},
-    {eje:3,lado:"exterior-izq"},{eje:3,lado:"interior-izq"},{eje:3,lado:"exterior-der"},{eje:3,lado:"interior-der"},
-    {eje:4,lado:"exterior-izq"},{eje:4,lado:"interior-izq"},{eje:4,lado:"exterior-der"},{eje:4,lado:"interior-der"},
-    {eje:5,lado:"exterior-izq"},{eje:5,lado:"interior-izq"},{eje:5,lado:"exterior-der"},{eje:5,lado:"interior-der"},
-  ];
-
-  function handleMouseMove(e){
-    const rect=containerRef.current?.getBoundingClientRect();
-    if(!rect)return;
-    setTipPos({x:e.clientX-rect.left, y:e.clientY-rect.top});
+  function tiresForSide(eje,sides){
+    return sides.map(lado=>({
+      lado,
+      tire:uTires.find(t=>t.eje===eje&&t.lado===lado)||null
+    })).filter(s=>{
+      // Only show slot if it makes sense for this axle
+      if(eje===1) return s.lado==="izquierdo"||s.lado==="derecho"||s.lado==="sencilla-izq"||s.lado==="sencilla-der";
+      return true;
+    });
   }
 
-  const TireEl=({t,isEmpty})=>{
-    if(isEmpty){
-      const x=AX[t.eje]||AX[1];
-      const y=AY[t.lado]||100;
-      return h('g',null,
-        h('ellipse',{cx:x,cy:y,rx:15,ry:9,fill:"#374151",stroke:"#4B5563",strokeWidth:1,opacity:.35})
+  function colorClass(t){
+    const pct=vidaUtil(t);
+    return pct>=80?"#dc2626":pct>=60?"#ca8a04":"#16a34a";
+  }
+  function bgClass(t){
+    const pct=vidaUtil(t);
+    return pct>=80?"tire-r":pct>=60?"tire-y":"tire-g";
+  }
+
+  // Check if this axle has any tires at all
+  function axleHasTires(eje){
+    return uTires.some(t=>t.eje===eje);
+  }
+
+  const activeEjes=EJES.filter(e=>axleHasTires(e));
+  if(!activeEjes.length)return null;
+
+  const css=`
+    .tgv-wrap{font-family:var(--font-sans,sans-serif)}
+    .tgv-hdr{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+    .tgv-plates{font-size:14px;font-weight:500;color:var(--color-text-primary);font-family:var(--font-mono,monospace)}
+    .tgv-model{font-size:12px;color:var(--color-text-secondary)}
+    .tgv-badge{margin-left:auto;font-size:11px;background:var(--color-background-info);
+      color:var(--color-text-info);border-radius:4px;padding:2px 8px;font-weight:500}
+    .tgv-col-hdrs{display:grid;grid-template-columns:64px 1fr 8px 1fr;gap:6px;margin-bottom:4px;padding:0 2px}
+    .tgv-col-lbl{font-size:10px;font-weight:500;color:var(--color-text-tertiary);
+      letter-spacing:.07em;text-transform:uppercase;text-align:center}
+    .tgv-axles{display:flex;flex-direction:column;gap:6px}
+    .tgv-axle{display:grid;grid-template-columns:64px 1fr 8px 1fr;gap:6px;align-items:stretch}
+    .tgv-eje-lbl{display:flex;flex-direction:column;justify-content:center;text-align:right;padding-right:4px}
+    .tgv-eje-n{font-size:11px;font-weight:500;color:var(--color-text-secondary)}
+    .tgv-eje-t{font-size:9px;color:var(--color-text-tertiary);margin-top:1px}
+    .tgv-divider{background:var(--color-border-secondary);border-radius:2px;align-self:stretch}
+    .tgv-side{display:flex;flex-direction:column;gap:4px}
+    .tgv-tire{padding:9px 11px;border-radius:8px;border:0.5px solid;cursor:pointer;
+      transition:opacity .15s,transform .15s}
+    .tgv-tire:hover{opacity:.8;transform:translateX(1px)}
+    .tire-g{background:#16a34a0a;border-color:#16a34a50}
+    .tire-y{background:#ca8a040a;border-color:#ca8a0450}
+    .tire-r{background:#dc26260a;border-color:#dc262650}
+    .tire-e{background:var(--color-background-secondary);
+      border-color:var(--color-border-tertiary);border-style:dashed}
+    .tgv-th{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px}
+    .tgv-name{font-size:11px;font-weight:500;color:var(--color-text-primary);
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80%}
+    .tgv-pct{font-size:11px;font-weight:500;flex-shrink:0}
+    .tgv-sub{font-size:10px;color:var(--color-text-tertiary);margin-bottom:5px;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .tgv-bar-track{height:4px;background:var(--color-border-tertiary);border-radius:2px;overflow:hidden}
+    .tgv-bar-fill{height:100%;border-radius:2px;transition:width .4s}
+    .tgv-rec{font-size:10px;font-weight:500;margin-top:5px;
+      padding:2px 6px;border-radius:3px;display:inline-block}
+    .tgv-empty-lbl{font-size:11px;color:var(--color-text-tertiary);font-style:italic}
+    .tgv-legend{display:flex;gap:14px;margin-top:12px;flex-wrap:wrap;
+      padding-top:10px;border-top:0.5px solid var(--color-border-tertiary)}
+    .tgv-li{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--color-text-secondary)}
+    .tgv-ld{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+  `;
+
+  function TireCell({slot}){
+    const t=slot.tire;
+    if(!t){
+      return h('div',{className:"tgv-tire tire-e",style:{minHeight:52}},
+        h('div',{style:{color:"var(--color-text-tertiary)",fontSize:11,fontStyle:"italic"}},
+          LADO_LABEL[slot.lado]||slot.lado),
+        h('div',{style:{fontSize:10,color:"var(--color-text-tertiary)",opacity:.6}},"Sin llanta asignada")
       );
     }
-    const {x,y}=pos(t);
-    const col=LIGHT[trafficLight(t)];
     const pct=vidaUtil(t);
-    const isHov=hovered===t.id;
-    return h('g',{
-      style:{cursor:"pointer"},
+    const col=colorClass(t);
+    const bc=bgClass(t);
+    const rec=recomendacion(t);
+    const kmR=kmRestantes(t);
+    return h('div',{
+      className:`tgv-tire ${bc}`,
       onClick:()=>onTireClick(t),
-      onMouseEnter:e=>{setHovered(t.id);handleMouseMove(e);},
-      onMouseMove:handleMouseMove,
-      onMouseLeave:()=>setHovered(null)
+      title:`${t.codigo} — ${t.marca} ${t.modelo}`
     },
-      // Glow when hovered
-      isHov&&h('ellipse',{cx:x,cy:y,rx:20,ry:13,fill:col,opacity:.2}),
-      // Drop shadow
-      h('ellipse',{cx:x+2,cy:y+3,rx:15,ry:9,fill:"rgba(0,0,0,.35)"}),
-      // Tire outer (rubber)
-      h('ellipse',{cx:x,cy:y,rx:15,ry:9,fill:"#111827",stroke:col,strokeWidth:isHov?3:2}),
-      // Tread grooves
-      h('ellipse',{cx:x,cy:y,rx:12,ry:7,fill:"none",stroke:"#1F2937",strokeWidth:1.5}),
-      // Rim
-      h('ellipse',{cx:x,cy:y,rx:7,ry:4.2,fill:col,opacity:.85}),
-      // Hub
-      h('circle',{cx:x,cy:y,r:2.5,fill:"#F9FAFB",opacity:.9}),
-      // Life indicator arc (small arc showing % life used)
-      pct>0&&h('path',{
-        d:(()=>{
-          // Draw a small arc on the rim indicating life used
-          const r=5.5;const startA=-Math.PI/2;const endA=startA+(pct/100)*2*Math.PI;
-          const x1=x+r*Math.cos(startA);const y1=y+r*Math.sin(startA)/0.6;
-          const x2=x+r*Math.cos(endA);const y2=y+r*Math.sin(endA)/0.6;
-          return pct>=100?"":`M ${x1} ${y1} A ${r} ${r*0.6} 0 ${pct>50?1:0} 1 ${x2} ${y2}`;
-        })(),
-        stroke:"white",strokeWidth:1,fill:"none",opacity:.6
-      })
-    );
-  };
-
-  // Tooltip data rows
-  const tipRows=hoveredTire?[
-    ["Código",hoveredTire.codigo],
-    ["Medida",hoveredTire.medida],
-    ["Tipo",hoveredTire.tipo],
-    ["Posición",`Eje ${hoveredTire.eje} · ${hoveredTire.lado}`],
-    ["Km recorridos",`${kmRec(hoveredTire).toLocaleString("es-MX")} km`],
-    ["Vida útil",`${vidaUtil(hoveredTire)}%`],
-    ["Km restantes",`${kmRestantes(hoveredTire).toLocaleString("es-MX")} km`],
-    ["Costo/km",`$${costoPorKm(hoveredTire)}`],
-    ["Desgaste",hoveredTire.desgaste],
-    ["Proveedor",hoveredTire.proveedor||"—"],
-  ]:[];
-
-  return h('div',{style:{position:"relative",userSelect:"none"},ref:containerRef},
-
-    // ── Header ──────────────────────────────────────────────────────────────
-    h('div',{style:{display:"flex",alignItems:"center",gap:10,marginBottom:10}},
-      h('div',{style:{width:10,height:10,borderRadius:"50%",background:"#1447E6",flexShrink:0}}),
-      h('span',{style:{fontSize:14,fontWeight:800,color:"#0D1B2A",fontFamily:"IBM Plex Mono,monospace"}},unit.plates),
-      h('span',{style:{fontSize:12.5,color:"#6B7A90"}},unit.model," · ",unit.trailerType),
-      h('span',{style:{marginLeft:"auto",fontSize:12,background:"#EBF1FF",color:"#1447E6",
-        border:"1px solid #93BFFC",borderRadius:4,padding:"1px 8px",fontWeight:600}},
-        uTires.length," llantas")
-    ),
-
-    // ── SVG ──────────────────────────────────────────────────────────────────
-    h('div',{style:{
-      overflowX:"auto",borderRadius:10,
-      background:"linear-gradient(180deg,#0F1E35 0%,#1a2d48 100%)",
-      border:"1px solid #1E3A5F",
-      padding:"12px 8px 8px",
-      boxShadow:"inset 0 2px 12px rgba(0,0,0,.4)"
-    }},
-      h('svg',{
-        viewBox:"0 0 760 200",
-        style:{width:"100%",minWidth:520,height:"auto",display:"block"},
-        xmlns:"http://www.w3.org/2000/svg"
-      },
-
-        // ── ROAD / GROUND LINE ─────────────────────────────────────────────
-        h('line',{x1:0,y1:190,x2:760,y2:190,stroke:"#374151",strokeWidth:1}),
-
-        // ── CAB ────────────────────────────────────────────────────────────
-        // Main cab body
-        h('rect',{x:15,y:55,width:100,height:110,rx:6,
-          fill:"url(#cabGrad)",stroke:"#1E3A5F",strokeWidth:1.5}),
-        // Windshield
-        h('rect',{x:22,y:62,width:60,height:42,rx:5,
-          fill:"#7DD3FC",opacity:.75,stroke:"#38BDF8",strokeWidth:.5}),
-        // Windshield reflection
-        h('line',{x1:27,y1:66,x2:38,y2:100,stroke:"white",strokeWidth:1,opacity:.25}),
-        // Door
-        h('rect',{x:83,y:72,width:26,height:66,rx:2,
-          fill:"#1D4ED8",stroke:"#1E3A5F",strokeWidth:.8}),
-        // Door handle
-        h('rect',{x:86,y:107,width:16,height:4,rx:2,fill:"#60A5FA",opacity:.8}),
-        // Door window
-        h('rect',{x:86,y:75,width:20,height:22,rx:2,fill:"#7DD3FC",opacity:.55}),
-        // Steps
-        h('rect',{x:83,y:148,width:30,height:5,rx:1,fill:"#374151"}),
-        h('rect',{x:83,y:156,width:30,height:5,rx:1,fill:"#374151"}),
-        // Exhaust stacks
-        h('rect',{x:70,y:28,width:7,height:30,rx:3,fill:"#4B5563",stroke:"#374151",strokeWidth:.5}),
-        h('rect',{x:80,y:28,width:7,height:30,rx:3,fill:"#4B5563",stroke:"#374151",strokeWidth:.5}),
-        // Exhaust smoke hint
-        h('ellipse',{cx:73,cy:25,rx:5,ry:3,fill:"#9CA3AF",opacity:.2}),
-        // Mirrors
-        h('rect',{x:8,y:70,width:10,height:6,rx:2,fill:"#374151"}),
-        h('line',{x1:12,y1:76,x2:18,y2:76,stroke:"#374151",strokeWidth:1.5}),
-        // Bumper
-        h('rect',{x:15,y:162,width:100,height:8,rx:2,fill:"#374151",stroke:"#4B5563",strokeWidth:.5}),
-        // Lights
-        h('rect',{x:17,y:156,width:12,height:8,rx:2,fill:"#FCD34D",opacity:.9}),
-        h('rect',{x:101,y:156,width:12,height:8,rx:2,fill:"#FCA5A5",opacity:.8}),
-        // Cab label
-        h('text',{x:47,y:135,fontSize:7,fontWeight:"700",fill:"rgba(255,255,255,.4)",
-          fontFamily:"monospace",textAnchor:"middle",letterSpacing:1},"CABINA"),
-
-        // ── COUPLING / 5TH WHEEL ──────────────────────────────────────────
-        h('rect',{x:115,y:95,width:22,height:16,rx:2,fill:"#4B5563",stroke:"#374151",strokeWidth:1}),
-        h('rect',{x:120,y:99,width:12,height:8,rx:1,fill:"#6B7280"}),
-
-        // ── TRAILER ────────────────────────────────────────────────────────
-        // Main body
-        h('rect',{x:137,y:55,width:548,height:110,rx:5,
-          fill:"url(#trailerGrad)",stroke:"#1E3A5F",strokeWidth:1.5}),
-        // Ribs (vertical panels)
-        [190,245,300,355,410,465,520,575,630].map(x=>
-          h('line',{key:x,x1:x,y1:57,x2:x,y2:163,stroke:"#1E3A5F",strokeWidth:1,opacity:.6})
-        ),
-        // Top rail
-        h('rect',{x:137,y:55,width:548,height:6,rx:0,fill:"#2D5A9E",opacity:.8}),
-        // Bottom rail
-        h('rect',{x:137,y:159,width:548,height:6,rx:0,fill:"#1E3A5F"}),
-        // Rear doors
-        h('line',{x1:680,y1:57,x2:680,y2:163,stroke:"#60A5FA",strokeWidth:2,opacity:.6}),
-        h('line',{x1:685,y1:57,x2:685,y2:163,stroke:"#60A5FA",strokeWidth:2,opacity:.6}),
-        // Rear lights
-        h('rect',{x:682,y:60,width:5,height:12,rx:1,fill:"#FCA5A5",opacity:.9}),
-        h('rect',{x:682,y:150,width:5,height:12,rx:1,fill:"#FCA5A5",opacity:.9}),
-        // Trailer logo placeholder
-        h('rect',{x:250,y:85,width:200,height:40,rx:4,fill:"rgba(255,255,255,.04)",stroke:"rgba(255,255,255,.08)",strokeWidth:1}),
-        h('text',{x:350,y:110,fontSize:10,fontWeight:"700",fill:"rgba(255,255,255,.25)",
-          fontFamily:"monospace",textAnchor:"middle",letterSpacing:2},"FLOTA CARGO"),
-
-        // ── LANDING GEAR ──────────────────────────────────────────────────
-        h('rect',{x:210,y:165,width:5,height:20,fill:"#4B5563",rx:1}),
-        h('rect',{x:223,y:165,width:5,height:20,fill:"#4B5563",rx:1}),
-        h('rect',{x:205,y:182,width:28,height:5,rx:2,fill:"#374151"}),
-
-        // ── AXLE BARS ──────────────────────────────────────────────────────
-        Object.entries(AX).map(([eje,x])=>
-          h('rect',{key:`axle${eje}`,x:x-3,y:68,width:6,height:110,rx:3,fill:"#374151",stroke:"#4B5563",strokeWidth:.5})
-        ),
-
-        // ── GRADIENT DEFS ─────────────────────────────────────────────────
-        h('defs',null,
-          h('linearGradient',{id:"cabGrad",x1:"0",y1:"0",x2:"1",y2:"0"},
-            h('stop',{offset:"0%",stopColor:"#1D4ED8"}),
-            h('stop',{offset:"100%",stopColor:"#1E40AF"})
-          ),
-          h('linearGradient',{id:"trailerGrad",x1:"0",y1:"0",x2:"0",y2:"1"},
-            h('stop',{offset:"0%",stopColor:"#2563EB"}),
-            h('stop',{offset:"50%",stopColor:"#1D4ED8"}),
-            h('stop',{offset:"100%",stopColor:"#1E3A5F"})
-          )
-        ),
-
-        // ── EMPTY TIRE SLOTS ───────────────────────────────────────────────
-        ALL_SLOTS.map(slot=>{
-          const taken=uTires.find(t=>t.eje===slot.eje&&t.lado===slot.lado);
-          if(taken)return null;
-          return h(TireEl,{key:`empty-${slot.eje}-${slot.lado}`,t:slot,isEmpty:true});
-        }),
-
-        // ── ACTUAL TIRES ───────────────────────────────────────────────────
-        uTires.map(t=>h(TireEl,{key:t.id,t,isEmpty:false})),
-
-        // ── AXLE LABELS ────────────────────────────────────────────────────
-        Object.entries(AX).map(([eje,x])=>
-          h('text',{key:`lbl${eje}`,x,y:197,fontSize:8,fontWeight:"600",fill:"#6B7280",
-            textAnchor:"middle",fontFamily:"monospace"},`E${eje}`)
-        ),
-
-        // ── SIDE LABELS ────────────────────────────────────────────────────
-        h('text',{x:748,y:35,fontSize:7.5,fill:"#6B7280",textAnchor:"end",fontFamily:"sans-serif",fontStyle:"italic"},"← Izquierdo / Left"),
-        h('text',{x:748,y:186,fontSize:7.5,fill:"#6B7280",textAnchor:"end",fontFamily:"sans-serif",fontStyle:"italic"},"← Derecho / Right"),
+      h('div',{className:"tgv-th"},
+        h('span',{className:"tgv-name"},t.marca," ",t.modelo),
+        h('span',{className:"tgv-pct",style:{color:col}},pct,"%")
+      ),
+      h('div',{className:"tgv-sub"},
+        LADO_LABEL[slot.lado]||slot.lado," · ",
+        (kmRec(t)).toLocaleString("es-MX")," km"
+      ),
+      h('div',{className:"tgv-bar-track"},
+        h('div',{className:"tgv-bar-fill",style:{width:pct+"%",background:col}})
+      ),
+      rec&&pct>=60&&h('div',{className:"tgv-rec",
+        style:{background:col+"18",color:col}},
+        rec.msg
       )
+    );
+  }
+
+  return h('div',{className:"tgv-wrap"},
+    h('style',null,css),
+
+    // Header
+    h('div',{className:"tgv-hdr"},
+      h('div',{style:{width:8,height:8,borderRadius:"50%",background:"#1447E6",flexShrink:0}}),
+      h('span',{className:"tgv-plates"},unit.plates),
+      h('span',{className:"tgv-model"},unit.model),
+      h('span',{className:"tgv-badge"},uTires.length," llantas activas")
     ),
 
-    // ── LEGEND ────────────────────────────────────────────────────────────────
-    h('div',{style:{display:"flex",gap:14,marginTop:8,flexWrap:"wrap"}},
-      [["#22C55E","Buen estado (<60%)"],["#F59E0B","Revisar pronto (60-79%)"],["#EF4444","Cambio urgente (≥80%)"],["#374151","Sin llanta asignada"]].map(([col,lbl])=>
-        h('div',{key:lbl,style:{display:"flex",alignItems:"center",gap:5,fontSize:11,color:"#6B7A90"}},
-          h('div',{style:{width:14,height:9,borderRadius:2,background:col,border:`1px solid ${col}88`}}),
+    // Column headers
+    h('div',{className:"tgv-col-hdrs"},
+      h('span',null),
+      h('span',{className:"tgv-col-lbl"},"← Izquierdo"),
+      h('span',null),
+      h('span',{className:"tgv-col-lbl"},"Derecho →")
+    ),
+
+    // Axle rows
+    h('div',{className:"tgv-axles"},
+      activeEjes.map(eje=>{
+        const leftSlots=tiresForSide(eje,LEFT_SIDES);
+        const rightSlots=tiresForSide(eje,RIGHT_SIDES);
+        // For eje 1, only show one per side
+        const ls=eje===1?leftSlots.slice(0,1):leftSlots;
+        const rs=eje===1?rightSlots.slice(0,1):rightSlots;
+
+        return h('div',{key:eje,className:"tgv-axle"},
+          h('div',{className:"tgv-eje-lbl"},
+            h('div',{className:"tgv-eje-n"},"Eje ",eje),
+            h('div',{className:"tgv-eje-t"},EJE_TYPE[eje]||"")
+          ),
+          h('div',{className:"tgv-side"},
+            ls.map(slot=>h(TireCell,{key:slot.lado,slot}))
+          ),
+          h('div',{className:"tgv-divider"}),
+          h('div',{className:"tgv-side"},
+            rs.map(slot=>h(TireCell,{key:slot.lado,slot}))
+          )
+        );
+      })
+    ),
+
+    // Legend
+    h('div',{className:"tgv-legend"},
+      [["#16a34a","Buen estado (<60%)"],["#ca8a04","Revisar pronto (60–79%)"],
+       ["#dc2626","Cambio urgente (≥80%)"]].map(([col,lbl])=>
+        h('div',{key:lbl,className:"tgv-li"},
+          h('div',{className:"tgv-ld",style:{background:col}}),
           lbl
         )
       )
-    ),
-
-    // ── TOOLTIP ───────────────────────────────────────────────────────────────
-    hoveredTire&&h('div',{style:{
-      position:"absolute",
-      left:Math.min(tipPos.x+16, (containerRef.current?.offsetWidth||400)-230),
-      top:Math.max(4,tipPos.y-20),
-      zIndex:200,
-      background:"#0D1B2A",
-      color:"#F9FAFB",
-      borderRadius:10,
-      padding:"12px 14px",
-      fontSize:12,
-      pointerEvents:"none",
-      boxShadow:"0 12px 32px rgba(0,0,0,.6)",
-      minWidth:210,
-      border:`1px solid ${LIGHT[trafficLight(hoveredTire)]}`,
-      lineHeight:1.5
-    }},
-      // Tire ID + badge
-      h('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}},
-        h('span',{style:{fontFamily:"monospace",fontWeight:700,color:LIGHT[trafficLight(hoveredTire)],fontSize:11}},
-          hoveredTire.codigo),
-        h('span',{style:{fontSize:10,background:LIGHT[trafficLight(hoveredTire)]+"22",
-          color:LIGHT[trafficLight(hoveredTire)],borderRadius:4,padding:"1px 6px",fontWeight:700,
-          border:`1px solid ${LIGHT[trafficLight(hoveredTire)]}55`}},
-          `${vidaUtil(hoveredTire)}%`)
-      ),
-      // Tire name
-      h('div',{style:{fontWeight:700,fontSize:13.5,marginBottom:8,borderBottom:"1px solid rgba(255,255,255,.1)",paddingBottom:8}},
-        hoveredTire.marca," ",hoveredTire.modelo),
-      // Info rows
-      tipRows.map(([k,v])=>
-        h('div',{key:k,style:{display:"flex",justifyContent:"space-between",gap:16,marginBottom:3}},
-          h('span',{style:{color:"rgba(255,255,255,.45)",fontSize:11,flexShrink:0}},k),
-          h('span',{style:{fontWeight:600,fontSize:11.5,textAlign:"right",color:"#F9FAFB"}},v)
-        )
-      ),
-      // Life bar
-      h('div',{style:{marginTop:8,paddingTop:8,borderTop:"1px solid rgba(255,255,255,.1)"}},
-        h('div',{style:{display:"flex",justifyContent:"space-between",fontSize:10,marginBottom:4}},
-          h('span',{style:{color:"rgba(255,255,255,.4)"}},"Vida útil consumida"),
-          h('span',{style:{color:LIGHT[trafficLight(hoveredTire)],fontWeight:700}},
-            `${vidaUtil(hoveredTire)}%`)
-        ),
-        h('div',{style:{height:6,background:"rgba(255,255,255,.1)",borderRadius:3,overflow:"hidden"}},
-          h('div',{style:{height:"100%",width:`${vidaUtil(hoveredTire)}%`,
-            background:LIGHT[trafficLight(hoveredTire)],borderRadius:3,transition:"width .3s"}})
-        )
-      ),
-      // Recommendation
-      recomendacion(hoveredTire)&&h('div',{style:{
-        marginTop:8,padding:"6px 10px",
-        background:LIGHT[trafficLight(hoveredTire)]+"18",
-        border:`1px solid ${LIGHT[trafficLight(hoveredTire)]}44`,
-        borderRadius:6,fontWeight:700,
-        color:LIGHT[trafficLight(hoveredTire)],fontSize:11.5,textAlign:"center"
-      }},recomendacion(hoveredTire).msg),
-      // Click hint
-      h('div',{style:{marginTop:6,fontSize:10,color:"rgba(255,255,255,.25)",textAlign:"center"}},
-        "Click para ver historial completo")
     )
   );
 }
@@ -4313,7 +4183,7 @@ function Tires({tires,setTires,units,drivers}){
 
       // ── Diagrama SVG del tráiler por unidad ─────────────────────────────
       h('div',{style:{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"16px 20px"}},
-        h('div',{style:{fontSize:13,fontWeight:700,color:C.text,marginBottom:14}},"Diagrama de Llantas por Unidad"),
+        h('div',{style:{fontSize:13,fontWeight:700,color:C.text,marginBottom:14}},"Posición de Llantas por Unidad"),
         h('div',{style:{display:"flex",flexDirection:"column",gap:24}},
           units.map(unit=>{
             const uTires=tires.filter(t=>t.unitId===unit.id&&t.status==="activa");
@@ -4321,7 +4191,7 @@ function Tires({tires,setTires,units,drivers}){
 
             // Tooltip state per unit (use a simple ref-based approach via data-attr hover)
             // We'll render tooltip inline as a floating div controlled by React state
-            return h(TrailerDiagram,{key:unit.id,unit,uTires,vidaUtil,trafficLight,recomendacion,kmRec,kmRestantes,costoPorKm,LIGHT,
+            return h(TireGridView,{key:unit.id,unit,uTires,vidaUtil,trafficLight,recomendacion,kmRec,kmRestantes,costoPorKm,LIGHT,
               onTireClick:(t)=>{setDetailId(t.id);setTab("llantas");}});
           })
         )
