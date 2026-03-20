@@ -438,10 +438,21 @@ function Login({onLogin}){
         h('div',{style:{marginBottom:32}},
           h('div',{style:{
             display:"inline-flex",alignItems:"center",gap:6,
-            background:"#EBF1FF",borderRadius:20,padding:"4px 12px",
-            fontSize:12,fontWeight:600,color:"#1447E6",marginBottom:14
+            background:"#F0FDF4",borderRadius:20,padding:"4px 12px",
+            border:"1px solid #BBF7D0",
+            fontSize:12,fontWeight:600,color:"#16a34a",marginBottom:14
           }},
-            h('div',{style:{width:6,height:6,borderRadius:"50%",background:"#1447E6"}}),
+            h('div',{style:{position:"relative",width:8,height:8,flexShrink:0}},
+              h('div',{style:{
+                position:"absolute",inset:0,borderRadius:"50%",
+                background:"#16a34a",opacity:.35,
+                animation:"pulse 1.8s ease-in-out infinite"
+              }}),
+              h('div',{style:{
+                position:"absolute",inset:2,borderRadius:"50%",
+                background:"#16a34a"
+              }})
+            ),
             "Acceso seguro"
           ),
           h('h2',{style:{
@@ -540,8 +551,14 @@ function Login({onLogin}){
           borderTop:"1px solid #EEF1F6",
           display:"flex",alignItems:"center",gap:6
         }},
-          h(Ic,{n:"shield",s:13,c:"#9BA8B8"}),
-          h('span',{style:{fontSize:11.5,color:"#9BA8B8"}},"Conexión segura · Datos cifrados por empresa")
+          h('div',{style:{
+            display:"inline-flex",alignItems:"center",gap:6,
+            background:"#F0FDF4",border:"1px solid #BBF7D0",
+            borderRadius:20,padding:"3px 10px",
+          }},
+            h(Ic,{n:"shield",s:13,c:"#16a34a"}),
+            h('span',{style:{fontSize:11.5,fontWeight:600,color:"#16a34a"}},"Conexión segura · Datos cifrados por empresa")
+          )
         )
       )
     )
