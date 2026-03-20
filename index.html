@@ -3872,206 +3872,307 @@ const TIRES0=[
 
 // ── TRAILER DIAGRAM ──────────────────────────────────────────────────────────
 function TrailerDiagram({unit,uTires,vidaUtil,trafficLight,recomendacion,kmRec,kmRestantes,costoPorKm,LIGHT,onTireClick}){
-  const [tooltip,setTooltip]=useState(null); // {t, x, y}
+  const [hovered,setHovered]=useState(null); // tire id
+  const [tipPos,setTipPos]=useState({x:0,y:0});
   const containerRef=useRef(null);
 
-  // Map llanta to a position on the SVG diagram
-  // The truck has: cab (eje 1 = 2 tires) + drive axles (eje 2,3 = 4 tires each) + trailer axles (eje 4,5 = 4 tires each)
-  // SVG viewBox 0 0 820 160, truck drawn left to right
+  const hoveredTire=hovered?uTires.find(t=>t.id===hovered):null;
 
-  // Positions: each tire gets {cx, cy} in SVG coords
-  // Tire layout: top row (left side of truck) and bottom row (right side)
-  // y=30 = left/top side, y=130 = right/bottom side
-  // Dual tires: slightly offset
-
-  const AXLE_X={1:120, 2:290, 3:390, 4:570, 5:670};
-  const SIDE_Y={
-    "izquierdo":38, "derecho":122,
-    "sencilla-izq":38, "sencilla-der":122,
-    "exterior-izq":25, "interior-izq":48,
-    "exterior-der":135, "interior-der":112,
+  // ── Tire position map ─────────────────────────────────────────────────────
+  // SVG viewBox: 0 0 880 200
+  // Cab: x 20-140 | Trailer: x 148-720 | Rear bumper: x 720-740
+  // Axle X centers:
+  const AX={1:110, 2:300, 3:420, 4:580, 5:680};
+  // Y positions (top=left side, bottom=right side of truck)
+  const AY={
+    "izquierdo":42,      "derecho":158,
+    "sencilla-izq":42,   "sencilla-der":158,
+    "exterior-izq":28,   "interior-izq":52,
+    "exterior-der":170,  "interior-der":148,
   };
 
-  function getTirePos(t){
-    const x=AXLE_X[t.eje]||120;
-    const y=SIDE_Y[t.lado]||80;
-    return{x,y};
-  }
+  function pos(t){return{x:AX[t.eje]||AX[1], y:AY[t.lado]||100};}
 
-  function showTooltip(e,t){
+  // All possible slots to show empties
+  const ALL_SLOTS=[
+    {eje:1,lado:"izquierdo"},{eje:1,lado:"derecho"},
+    {eje:2,lado:"exterior-izq"},{eje:2,lado:"interior-izq"},{eje:2,lado:"exterior-der"},{eje:2,lado:"interior-der"},
+    {eje:3,lado:"exterior-izq"},{eje:3,lado:"interior-izq"},{eje:3,lado:"exterior-der"},{eje:3,lado:"interior-der"},
+    {eje:4,lado:"exterior-izq"},{eje:4,lado:"interior-izq"},{eje:4,lado:"exterior-der"},{eje:4,lado:"interior-der"},
+    {eje:5,lado:"exterior-izq"},{eje:5,lado:"interior-izq"},{eje:5,lado:"exterior-der"},{eje:5,lado:"interior-der"},
+  ];
+
+  function handleMouseMove(e){
     const rect=containerRef.current?.getBoundingClientRect();
     if(!rect)return;
-    const svgEl=e.currentTarget.closest("svg");
-    const svgRect=svgEl?.getBoundingClientRect();
-    if(!svgRect)return;
-    const relX=e.clientX-rect.left;
-    const relY=e.clientY-rect.top;
-    setTooltip({t,x:relX,y:relY});
+    setTipPos({x:e.clientX-rect.left, y:e.clientY-rect.top});
   }
 
-  const pctColor=(t)=>LIGHT[trafficLight(t)];
+  const TireEl=({t,isEmpty})=>{
+    if(isEmpty){
+      const x=AX[t.eje]||AX[1];
+      const y=AY[t.lado]||100;
+      return h('g',null,
+        h('ellipse',{cx:x,cy:y,rx:15,ry:9,fill:"#374151",stroke:"#4B5563",strokeWidth:1,opacity:.35})
+      );
+    }
+    const {x,y}=pos(t);
+    const col=LIGHT[trafficLight(t)];
+    const pct=vidaUtil(t);
+    const isHov=hovered===t.id;
+    return h('g',{
+      style:{cursor:"pointer"},
+      onClick:()=>onTireClick(t),
+      onMouseEnter:e=>{setHovered(t.id);handleMouseMove(e);},
+      onMouseMove:handleMouseMove,
+      onMouseLeave:()=>setHovered(null)
+    },
+      // Glow when hovered
+      isHov&&h('ellipse',{cx:x,cy:y,rx:20,ry:13,fill:col,opacity:.2}),
+      // Drop shadow
+      h('ellipse',{cx:x+2,cy:y+3,rx:15,ry:9,fill:"rgba(0,0,0,.35)"}),
+      // Tire outer (rubber)
+      h('ellipse',{cx:x,cy:y,rx:15,ry:9,fill:"#111827",stroke:col,strokeWidth:isHov?3:2}),
+      // Tread grooves
+      h('ellipse',{cx:x,cy:y,rx:12,ry:7,fill:"none",stroke:"#1F2937",strokeWidth:1.5}),
+      // Rim
+      h('ellipse',{cx:x,cy:y,rx:7,ry:4.2,fill:col,opacity:.85}),
+      // Hub
+      h('circle',{cx:x,cy:y,r:2.5,fill:"#F9FAFB",opacity:.9}),
+      // Life indicator arc (small arc showing % life used)
+      pct>0&&h('path',{
+        d:(()=>{
+          // Draw a small arc on the rim indicating life used
+          const r=5.5;const startA=-Math.PI/2;const endA=startA+(pct/100)*2*Math.PI;
+          const x1=x+r*Math.cos(startA);const y1=y+r*Math.sin(startA)/0.6;
+          const x2=x+r*Math.cos(endA);const y2=y+r*Math.sin(endA)/0.6;
+          return pct>=100?"":`M ${x1} ${y1} A ${r} ${r*0.6} 0 ${pct>50?1:0} 1 ${x2} ${y2}`;
+        })(),
+        stroke:"white",strokeWidth:1,fill:"none",opacity:.6
+      })
+    );
+  };
 
-  return h('div',{style:{position:"relative"},ref:containerRef,
-    onMouseLeave:()=>setTooltip(null)},
+  // Tooltip data rows
+  const tipRows=hoveredTire?[
+    ["Código",hoveredTire.codigo],
+    ["Medida",hoveredTire.medida],
+    ["Tipo",hoveredTire.tipo],
+    ["Posición",`Eje ${hoveredTire.eje} · ${hoveredTire.lado}`],
+    ["Km recorridos",`${kmRec(hoveredTire).toLocaleString("es-MX")} km`],
+    ["Vida útil",`${vidaUtil(hoveredTire)}%`],
+    ["Km restantes",`${kmRestantes(hoveredTire).toLocaleString("es-MX")} km`],
+    ["Costo/km",`$${costoPorKm(hoveredTire)}`],
+    ["Desgaste",hoveredTire.desgaste],
+    ["Proveedor",hoveredTire.proveedor||"—"],
+  ]:[];
 
-    // Header
+  return h('div',{style:{position:"relative",userSelect:"none"},ref:containerRef},
+
+    // ── Header ──────────────────────────────────────────────────────────────
     h('div',{style:{display:"flex",alignItems:"center",gap:10,marginBottom:10}},
-      h('span',{style:{fontSize:14,fontWeight:800,color:"#1447E6",fontFamily:"IBM Plex Mono,monospace"}},unit.plates),
+      h('div',{style:{width:10,height:10,borderRadius:"50%",background:"#1447E6",flexShrink:0}}),
+      h('span',{style:{fontSize:14,fontWeight:800,color:"#0D1B2A",fontFamily:"IBM Plex Mono,monospace"}},unit.plates),
       h('span',{style:{fontSize:12.5,color:"#6B7A90"}},unit.model," · ",unit.trailerType),
-      h('span',{style:{marginLeft:"auto",fontSize:12,color:"#6B7A90"}},uTires.length," llantas activas")
+      h('span',{style:{marginLeft:"auto",fontSize:12,background:"#EBF1FF",color:"#1447E6",
+        border:"1px solid #93BFFC",borderRadius:4,padding:"1px 8px",fontWeight:600}},
+        uTires.length," llantas")
     ),
 
-    // SVG Trailer
-    h('div',{style:{overflowX:"auto",borderRadius:8,background:"#F7F9FC",border:"1px solid #EEF1F6",padding:"8px 0"}},
-      h('svg',{viewBox:"0 0 820 160",style:{width:"100%",minWidth:480,height:"auto",display:"block"},xmlns:"http://www.w3.org/2000/svg"},
+    // ── SVG ──────────────────────────────────────────────────────────────────
+    h('div',{style:{
+      overflowX:"auto",borderRadius:10,
+      background:"linear-gradient(180deg,#0F1E35 0%,#1a2d48 100%)",
+      border:"1px solid #1E3A5F",
+      padding:"12px 8px 8px",
+      boxShadow:"inset 0 2px 12px rgba(0,0,0,.4)"
+    }},
+      h('svg',{
+        viewBox:"0 0 760 200",
+        style:{width:"100%",minWidth:520,height:"auto",display:"block"},
+        xmlns:"http://www.w3.org/2000/svg"
+      },
 
-        // ── TRUCK CAB ────────────────────────────────────────────────────
-        // Cab body
-        h('rect',{x:20,y:30,width:110,height:100,rx:8,fill:"#1E3A5F",stroke:"#0D1B2A",strokeWidth:1.5}),
-        // Cab windshield
-        h('rect',{x:28,y:38,width:65,height:38,rx:4,fill:"#60A5FA",opacity:.7}),
-        // Cab door
-        h('rect',{x:95,y:50,width:30,height:55,rx:3,fill:"#2563EB",stroke:"#1E3A5F",strokeWidth:1}),
-        // Exhaust pipes
-        h('rect',{x:88,y:18,width:6,height:16,rx:2,fill:"#374151"}),
-        h('rect',{x:97,y:18,width:6,height:16,rx:2,fill:"#374151"}),
+        // ── ROAD / GROUND LINE ─────────────────────────────────────────────
+        h('line',{x1:0,y1:190,x2:760,y2:190,stroke:"#374151",strokeWidth:1}),
+
+        // ── CAB ────────────────────────────────────────────────────────────
+        // Main cab body
+        h('rect',{x:15,y:55,width:100,height:110,rx:6,
+          fill:"url(#cabGrad)",stroke:"#1E3A5F",strokeWidth:1.5}),
+        // Windshield
+        h('rect',{x:22,y:62,width:60,height:42,rx:5,
+          fill:"#7DD3FC",opacity:.75,stroke:"#38BDF8",strokeWidth:.5}),
+        // Windshield reflection
+        h('line',{x1:27,y1:66,x2:38,y2:100,stroke:"white",strokeWidth:1,opacity:.25}),
+        // Door
+        h('rect',{x:83,y:72,width:26,height:66,rx:2,
+          fill:"#1D4ED8",stroke:"#1E3A5F",strokeWidth:.8}),
+        // Door handle
+        h('rect',{x:86,y:107,width:16,height:4,rx:2,fill:"#60A5FA",opacity:.8}),
+        // Door window
+        h('rect',{x:86,y:75,width:20,height:22,rx:2,fill:"#7DD3FC",opacity:.55}),
+        // Steps
+        h('rect',{x:83,y:148,width:30,height:5,rx:1,fill:"#374151"}),
+        h('rect',{x:83,y:156,width:30,height:5,rx:1,fill:"#374151"}),
+        // Exhaust stacks
+        h('rect',{x:70,y:28,width:7,height:30,rx:3,fill:"#4B5563",stroke:"#374151",strokeWidth:.5}),
+        h('rect',{x:80,y:28,width:7,height:30,rx:3,fill:"#4B5563",stroke:"#374151",strokeWidth:.5}),
+        // Exhaust smoke hint
+        h('ellipse',{cx:73,cy:25,rx:5,ry:3,fill:"#9CA3AF",opacity:.2}),
+        // Mirrors
+        h('rect',{x:8,y:70,width:10,height:6,rx:2,fill:"#374151"}),
+        h('line',{x1:12,y1:76,x2:18,y2:76,stroke:"#374151",strokeWidth:1.5}),
         // Bumper
-        h('rect',{x:20,y:118,width:110,height:8,rx:2,fill:"#374151"}),
+        h('rect',{x:15,y:162,width:100,height:8,rx:2,fill:"#374151",stroke:"#4B5563",strokeWidth:.5}),
+        // Lights
+        h('rect',{x:17,y:156,width:12,height:8,rx:2,fill:"#FCD34D",opacity:.9}),
+        h('rect',{x:101,y:156,width:12,height:8,rx:2,fill:"#FCA5A5",opacity:.8}),
         // Cab label
-        h('text',{x:52,y:106,fontSize:9,fontWeight:"700",fill:"white",fontFamily:"monospace",textAnchor:"middle"},"CABINA"),
+        h('text',{x:47,y:135,fontSize:7,fontWeight:"700",fill:"rgba(255,255,255,.4)",
+          fontFamily:"monospace",textAnchor:"middle",letterSpacing:1},"CABINA"),
 
-        // ── FIFTH WHEEL / COUPLING ───────────────────────────────────────
-        h('rect',{x:130,y:68,width:18,height:24,rx:2,fill:"#374151"}),
+        // ── COUPLING / 5TH WHEEL ──────────────────────────────────────────
+        h('rect',{x:115,y:95,width:22,height:16,rx:2,fill:"#4B5563",stroke:"#374151",strokeWidth:1}),
+        h('rect',{x:120,y:99,width:12,height:8,rx:1,fill:"#6B7280"}),
 
-        // ── TRAILER BODY ─────────────────────────────────────────────────
-        h('rect',{x:148,y:40,width:510,height:88,rx:4,fill:"#2D4A7A",stroke:"#1E3A5F",strokeWidth:1.5}),
-        // Trailer ribs (decorative lines)
-        [200,260,320,380,440,500,560].map(x=>h('line',{key:x,x1:x,y1:42,x2:x,y2:126,stroke:"#1E3A5F",strokeWidth:1,opacity:.5})),
-        // Trailer label
-        h('text',{x:403,y:88,fontSize:11,fontWeight:"700",fill:"rgba(255,255,255,.6)",fontFamily:"monospace",textAnchor:"middle"},"REMOLQUE"),
-        // Rear door lines
-        h('line',{x1:648,y1:42,x2:648,y2:126,stroke:"#60A5FA",strokeWidth:1.5,opacity:.7}),
-        h('line',{x1:655,y1:42,x2:655,y2:126,stroke:"#60A5FA",strokeWidth:1.5,opacity:.7}),
+        // ── TRAILER ────────────────────────────────────────────────────────
+        // Main body
+        h('rect',{x:137,y:55,width:548,height:110,rx:5,
+          fill:"url(#trailerGrad)",stroke:"#1E3A5F",strokeWidth:1.5}),
+        // Ribs (vertical panels)
+        [190,245,300,355,410,465,520,575,630].map(x=>
+          h('line',{key:x,x1:x,y1:57,x2:x,y2:163,stroke:"#1E3A5F",strokeWidth:1,opacity:.6})
+        ),
+        // Top rail
+        h('rect',{x:137,y:55,width:548,height:6,rx:0,fill:"#2D5A9E",opacity:.8}),
+        // Bottom rail
+        h('rect',{x:137,y:159,width:548,height:6,rx:0,fill:"#1E3A5F"}),
+        // Rear doors
+        h('line',{x1:680,y1:57,x2:680,y2:163,stroke:"#60A5FA",strokeWidth:2,opacity:.6}),
+        h('line',{x1:685,y1:57,x2:685,y2:163,stroke:"#60A5FA",strokeWidth:2,opacity:.6}),
+        // Rear lights
+        h('rect',{x:682,y:60,width:5,height:12,rx:1,fill:"#FCA5A5",opacity:.9}),
+        h('rect',{x:682,y:150,width:5,height:12,rx:1,fill:"#FCA5A5",opacity:.9}),
+        // Trailer logo placeholder
+        h('rect',{x:250,y:85,width:200,height:40,rx:4,fill:"rgba(255,255,255,.04)",stroke:"rgba(255,255,255,.08)",strokeWidth:1}),
+        h('text',{x:350,y:110,fontSize:10,fontWeight:"700",fill:"rgba(255,255,255,.25)",
+          fontFamily:"monospace",textAnchor:"middle",letterSpacing:2},"FLOTA CARGO"),
 
-        // ── LANDING GEAR ─────────────────────────────────────────────────
-        h('rect',{x:220,y:128,width:6,height:24,fill:"#374151",rx:1}),
-        h('rect',{x:234,y:128,width:6,height:24,fill:"#374151",rx:1}),
-        h('rect',{x:214,y:148,width:32,height:5,rx:2,fill:"#374151"}),
+        // ── LANDING GEAR ──────────────────────────────────────────────────
+        h('rect',{x:210,y:165,width:5,height:20,fill:"#4B5563",rx:1}),
+        h('rect',{x:223,y:165,width:5,height:20,fill:"#4B5563",rx:1}),
+        h('rect',{x:205,y:182,width:28,height:5,rx:2,fill:"#374151"}),
 
-        // ── AXLE LINES ───────────────────────────────────────────────────
-        Object.entries(AXLE_X).map(([eje,x])=>
-          h('line',{key:eje,x1:x,y1:58,x2:x,y2:102,stroke:"#374151",strokeWidth:4,strokeLinecap:"round"})
+        // ── AXLE BARS ──────────────────────────────────────────────────────
+        Object.entries(AX).map(([eje,x])=>
+          h('rect',{key:`axle${eje}`,x:x-3,y:68,width:6,height:110,rx:3,fill:"#374151",stroke:"#4B5563",strokeWidth:.5})
         ),
 
-        // ── TIRES ────────────────────────────────────────────────────────
-        // Draw placeholder empty slots first (gray)
-        // Eje 1 (cab): sencilla izq/der
-        // Eje 2-3 (tracción): duales
-        // Eje 4-5 (remolque): duales
-        // We'll draw all tires that exist, and empty slots for the rest
-
-        // Empty slot function
-        ...[
-          // Eje 1: 2 tires (sencilla)
-          {eje:1,lado:"izquierdo"},{eje:1,lado:"derecho"},
-          // Eje 2-3: 4 tires each (dual)
-          {eje:2,lado:"exterior-izq"},{eje:2,lado:"interior-izq"},{eje:2,lado:"exterior-der"},{eje:2,lado:"interior-der"},
-          {eje:3,lado:"exterior-izq"},{eje:3,lado:"interior-izq"},{eje:3,lado:"exterior-der"},{eje:3,lado:"interior-der"},
-          // Eje 4-5: 4 tires each (dual)
-          {eje:4,lado:"exterior-izq"},{eje:4,lado:"interior-izq"},{eje:4,lado:"exterior-der"},{eje:4,lado:"interior-der"},
-          {eje:5,lado:"exterior-izq"},{eje:5,lado:"interior-izq"},{eje:5,lado:"exterior-der"},{eje:5,lado:"interior-der"},
-        ].map(slot=>{
-          const assigned=uTires.find(t=>t.eje===slot.eje&&t.lado===slot.lado);
-          if(assigned)return null; // will be drawn below
-          const x=AXLE_X[slot.eje]||120;
-          const y=SIDE_Y[slot.lado]||80;
-          return h('ellipse',{key:`empty-${slot.eje}-${slot.lado}`,
-            cx:x,cy:y,rx:13,ry:8,
-            fill:"#D1D5DB",stroke:"#9CA3AF",strokeWidth:1,opacity:.5});
-        }),
-
-        // Actual tires with interactivity
-        ...uTires.map(t=>{
-          const pos=getTirePos(t);
-          const col=pctColor(t);
-          const pct=vidaUtil(t);
-          // Outer ring (tread)
-          return h('g',{key:t.id,style:{cursor:"pointer"},
-            onClick:()=>onTireClick(t),
-            onMouseEnter:e=>showTooltip(e,t),
-            onMouseLeave:()=>setTooltip(null)},
-            // Shadow
-            h('ellipse',{cx:pos.x+2,cy:pos.y+3,rx:14,ry:9,fill:"rgba(0,0,0,.2)"}),
-            // Tire body (dark rubber)
-            h('ellipse',{cx:pos.x,cy:pos.y,rx:14,ry:9,fill:"#1F2937",stroke:col,strokeWidth:2.5}),
-            // Rim (inner circle)
-            h('ellipse',{cx:pos.x,cy:pos.y,rx:7,ry:4.5,fill:col,opacity:.9}),
-            // Center dot
-            h('circle',{cx:pos.x,cy:pos.y,r:2,fill:"white",opacity:.8}),
-            // Status ring (outer glow)
-            h('ellipse',{cx:pos.x,cy:pos.y,rx:14,ry:9,fill:"none",stroke:col,strokeWidth:1.5,opacity:.4}),
-            // Eje label under tire
-            h('text',{x:pos.x,y:pos.y+(pos.y<80?-14:18),
-              fontSize:8,fontWeight:"700",fill:"#9CA3AF",textAnchor:"middle",fontFamily:"monospace"},
-              `E${t.eje}`)
-          );
-        }),
-
-        // ── EJE LABELS ───────────────────────────────────────────────────
-        Object.entries(AXLE_X).map(([eje,x])=>
-          h('text',{key:`lbl${eje}`,x,y:153,fontSize:8,fontWeight:"600",fill:"#6B7A90",
-            textAnchor:"middle",fontFamily:"monospace"},`Eje ${eje}`)
+        // ── GRADIENT DEFS ─────────────────────────────────────────────────
+        h('defs',null,
+          h('linearGradient',{id:"cabGrad",x1:"0",y1:"0",x2:"1",y2:"0"},
+            h('stop',{offset:"0%",stopColor:"#1D4ED8"}),
+            h('stop',{offset:"100%",stopColor:"#1E40AF"})
+          ),
+          h('linearGradient',{id:"trailerGrad",x1:"0",y1:"0",x2:"0",y2:"1"},
+            h('stop',{offset:"0%",stopColor:"#2563EB"}),
+            h('stop',{offset:"50%",stopColor:"#1D4ED8"}),
+            h('stop',{offset:"100%",stopColor:"#1E3A5F"})
+          )
         ),
 
-        // ── LEGEND ───────────────────────────────────────────────────────
-        // Top-right legend: L=izquierdo, R=derecho
-        h('text',{x:800,y:45,fontSize:8,fill:"#9CA3AF",textAnchor:"end",fontFamily:"sans-serif"},"← Izquierdo"),
-        h('text',{x:800,y:130,fontSize:8,fill:"#9CA3AF",textAnchor:"end",fontFamily:"sans-serif"},"← Derecho")
+        // ── EMPTY TIRE SLOTS ───────────────────────────────────────────────
+        ALL_SLOTS.map(slot=>{
+          const taken=uTires.find(t=>t.eje===slot.eje&&t.lado===slot.lado);
+          if(taken)return null;
+          return h(TireEl,{key:`empty-${slot.eje}-${slot.lado}`,t:slot,isEmpty:true});
+        }),
+
+        // ── ACTUAL TIRES ───────────────────────────────────────────────────
+        uTires.map(t=>h(TireEl,{key:t.id,t,isEmpty:false})),
+
+        // ── AXLE LABELS ────────────────────────────────────────────────────
+        Object.entries(AX).map(([eje,x])=>
+          h('text',{key:`lbl${eje}`,x,y:197,fontSize:8,fontWeight:"600",fill:"#6B7280",
+            textAnchor:"middle",fontFamily:"monospace"},`E${eje}`)
+        ),
+
+        // ── SIDE LABELS ────────────────────────────────────────────────────
+        h('text',{x:748,y:35,fontSize:7.5,fill:"#6B7280",textAnchor:"end",fontFamily:"sans-serif",fontStyle:"italic"},"← Izquierdo / Left"),
+        h('text',{x:748,y:186,fontSize:7.5,fill:"#6B7280",textAnchor:"end",fontFamily:"sans-serif",fontStyle:"italic"},"← Derecho / Right"),
       )
     ),
 
-    // ── TOOLTIP ──────────────────────────────────────────────────────────────
-    tooltip&&h('div',{style:{
+    // ── LEGEND ────────────────────────────────────────────────────────────────
+    h('div',{style:{display:"flex",gap:14,marginTop:8,flexWrap:"wrap"}},
+      [["#22C55E","Buen estado (<60%)"],["#F59E0B","Revisar pronto (60-79%)"],["#EF4444","Cambio urgente (≥80%)"],["#374151","Sin llanta asignada"]].map(([col,lbl])=>
+        h('div',{key:lbl,style:{display:"flex",alignItems:"center",gap:5,fontSize:11,color:"#6B7A90"}},
+          h('div',{style:{width:14,height:9,borderRadius:2,background:col,border:`1px solid ${col}88`}}),
+          lbl
+        )
+      )
+    ),
+
+    // ── TOOLTIP ───────────────────────────────────────────────────────────────
+    hoveredTire&&h('div',{style:{
       position:"absolute",
-      left:Math.min(tooltip.x+12, 420),
-      top:Math.max(0,tooltip.y-10),
-      zIndex:100,
+      left:Math.min(tipPos.x+16, (containerRef.current?.offsetWidth||400)-230),
+      top:Math.max(4,tipPos.y-20),
+      zIndex:200,
       background:"#0D1B2A",
-      color:"#fff",
-      borderRadius:8,
-      padding:"10px 14px",
+      color:"#F9FAFB",
+      borderRadius:10,
+      padding:"12px 14px",
       fontSize:12,
-      lineHeight:1.6,
       pointerEvents:"none",
-      boxShadow:"0 8px 24px rgba(0,0,0,.4)",
-      minWidth:200,
-      maxWidth:260,
-      border:`1px solid ${LIGHT[trafficLight(tooltip.t)]}60`
+      boxShadow:"0 12px 32px rgba(0,0,0,.6)",
+      minWidth:210,
+      border:`1px solid ${LIGHT[trafficLight(hoveredTire)]}`,
+      lineHeight:1.5
     }},
-      h('div',{style:{fontFamily:"monospace",fontWeight:700,color:LIGHT[trafficLight(tooltip.t)],marginBottom:4,fontSize:11}},
-        tooltip.t.codigo),
-      h('div',{style:{fontWeight:700,fontSize:13,marginBottom:6}},
-        tooltip.t.marca," ",tooltip.t.modelo),
-      [
-        ["Medida",tooltip.t.medida],
-        ["Tipo",tooltip.t.tipo?.charAt(0).toUpperCase()+tooltip.t.tipo?.slice(1)],
-        ["Posición",`Eje ${tooltip.t.eje} · ${tooltip.t.lado}`],
-        ["Km recorridos",`${(kmRec(tooltip.t)).toLocaleString("es-MX")} km`],
-        ["Vida útil",`${vidaUtil(tooltip.t)}%`],
-        ["Km restantes",`${kmRestantes(tooltip.t).toLocaleString("es-MX")} km`],
-        ["Costo/km",`$${costoPorKm(tooltip.t)}`],
-        ["Desgaste",tooltip.t.desgaste],
-        ["Proveedor",tooltip.t.proveedor||"—"],
-      ].map(([k,v])=>h('div',{key:k,style:{display:"flex",justifyContent:"space-between",gap:12,borderTop:"1px solid rgba(255,255,255,.08)",paddingTop:3,marginTop:3}},
-        h('span',{style:{color:"rgba(255,255,255,.5)",fontSize:11}}),
-        h('span',{style:{fontWeight:600,fontSize:11.5,textAlign:"right"}},v)
-      ).concat([h('span',{key:k+"l",style:{color:"rgba(255,255,255,.5)",fontSize:11}},k),h('span',{key:k+"v",style:{fontWeight:600,fontSize:11.5,textAlign:"right"}},v)])).reduce((acc,el,i)=>i%2===0?[...acc,[el]]:[...acc.slice(0,-1),[...acc[acc.length-1],el]],[]).map((pair,i)=>
-        h('div',{key:i,style:{display:"flex",justifyContent:"space-between",gap:12,borderTop:"1px solid rgba(255,255,255,.08)",paddingTop:3,marginTop:3}},pair)
+      // Tire ID + badge
+      h('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}},
+        h('span',{style:{fontFamily:"monospace",fontWeight:700,color:LIGHT[trafficLight(hoveredTire)],fontSize:11}},
+          hoveredTire.codigo),
+        h('span',{style:{fontSize:10,background:LIGHT[trafficLight(hoveredTire)]+"22",
+          color:LIGHT[trafficLight(hoveredTire)],borderRadius:4,padding:"1px 6px",fontWeight:700,
+          border:`1px solid ${LIGHT[trafficLight(hoveredTire)]}55`}},
+          `${vidaUtil(hoveredTire)}%`)
       ),
-      recomendacion(tooltip.t)&&h('div',{style:{
-        marginTop:8,paddingTop:8,borderTop:"1px solid rgba(255,255,255,.12)",
-        fontWeight:700,color:LIGHT[trafficLight(tooltip.t)],fontSize:12
-      }},recomendacion(tooltip.t).msg)
+      // Tire name
+      h('div',{style:{fontWeight:700,fontSize:13.5,marginBottom:8,borderBottom:"1px solid rgba(255,255,255,.1)",paddingBottom:8}},
+        hoveredTire.marca," ",hoveredTire.modelo),
+      // Info rows
+      tipRows.map(([k,v])=>
+        h('div',{key:k,style:{display:"flex",justifyContent:"space-between",gap:16,marginBottom:3}},
+          h('span',{style:{color:"rgba(255,255,255,.45)",fontSize:11,flexShrink:0}},k),
+          h('span',{style:{fontWeight:600,fontSize:11.5,textAlign:"right",color:"#F9FAFB"}},v)
+        )
+      ),
+      // Life bar
+      h('div',{style:{marginTop:8,paddingTop:8,borderTop:"1px solid rgba(255,255,255,.1)"}},
+        h('div',{style:{display:"flex",justifyContent:"space-between",fontSize:10,marginBottom:4}},
+          h('span',{style:{color:"rgba(255,255,255,.4)"}},"Vida útil consumida"),
+          h('span',{style:{color:LIGHT[trafficLight(hoveredTire)],fontWeight:700}},
+            `${vidaUtil(hoveredTire)}%`)
+        ),
+        h('div',{style:{height:6,background:"rgba(255,255,255,.1)",borderRadius:3,overflow:"hidden"}},
+          h('div',{style:{height:"100%",width:`${vidaUtil(hoveredTire)}%`,
+            background:LIGHT[trafficLight(hoveredTire)],borderRadius:3,transition:"width .3s"}})
+        )
+      ),
+      // Recommendation
+      recomendacion(hoveredTire)&&h('div',{style:{
+        marginTop:8,padding:"6px 10px",
+        background:LIGHT[trafficLight(hoveredTire)]+"18",
+        border:`1px solid ${LIGHT[trafficLight(hoveredTire)]}44`,
+        borderRadius:6,fontWeight:700,
+        color:LIGHT[trafficLight(hoveredTire)],fontSize:11.5,textAlign:"center"
+      }},recomendacion(hoveredTire).msg),
+      // Click hint
+      h('div',{style:{marginTop:6,fontSize:10,color:"rgba(255,255,255,.25)",textAlign:"center"}},
+        "Click para ver historial completo")
     )
   );
 }
